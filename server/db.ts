@@ -78,9 +78,13 @@ export interface TransactionRecord {
   amount: number; // positive for deposit, negative for charge
   type: 'deposit' | 'charge' | 'refund' | 'admin_gift';
   description: string;
-  gateway?: 'zarinpal' | 'nextpay' | 'idpay' | 'stripe' | 'manual';
+  gateway?: 'zarinpal' | 'zibal' | 'nextpay' | 'idpay' | 'stripe' | 'manual';
   status: 'success' | 'pending' | 'failed';
   trackingCode?: string;
+  authority?: string;
+  cardPan?: string;
+  refId?: string | number;
+  fee?: number;
   createdAt: number;
 }
 
@@ -115,6 +119,7 @@ export interface SystemSettings {
       enabled: boolean;
       merchantId: string;
       isSandbox: boolean;
+      currency?: 'IRT' | 'IRR';
     };
     zibal: {
       enabled: boolean;
@@ -241,6 +246,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
       enabled: true,
       merchantId: '00000000-0000-0000-0000-000000000000',
       isSandbox: true,
+      currency: 'IRT',
     },
     zibal: {
       enabled: true,

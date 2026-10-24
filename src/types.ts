@@ -34,9 +34,13 @@ export interface TransactionRecord {
   amount: number;
   type: 'deposit' | 'charge' | 'refund' | 'admin_gift';
   description: string;
-  gateway?: 'zarinpal' | 'nextpay' | 'idpay' | 'stripe' | 'manual';
+  gateway?: 'zarinpal' | 'zibal' | 'nextpay' | 'idpay' | 'stripe' | 'manual';
   status: 'success' | 'pending' | 'failed';
   trackingCode?: string;
+  authority?: string;
+  cardPan?: string;
+  refId?: string | number;
+  fee?: number;
   createdAt: number;
 }
 
@@ -71,6 +75,7 @@ export interface SystemSettings {
       enabled: boolean;
       merchantId: string;
       isSandbox: boolean;
+      currency?: 'IRT' | 'IRR';
     };
     zibal: {
       enabled: boolean;

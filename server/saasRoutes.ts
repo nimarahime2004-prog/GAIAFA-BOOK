@@ -4,6 +4,7 @@ import { db, User, BookRecord, TranslationJob, TransactionRecord, ApiKeyConfig }
 import { queueManager } from './queue.ts';
 import { GoogleGenAI } from '@google/genai';
 import { sendRealOtpSms } from './smsService.ts';
+import { zarinpalService } from './zarinpalService.ts';
 
 // Helper to extract authenticated user from Authorization header
 export function getAuthUser(req: express.Request): User | null {
@@ -750,8 +751,8 @@ export function setupSaasRoutes(app: express.Express) {
     return res.json({ transactions });
   });
 
-  // Create payment invoice
-  app.post('/api/payment/create-invoice', requireAuth, (req, res) => {
+  // Create payment invoice (Real Zarinpal v4 Web-Service or fallback)
+  app.post('/api/payment/create-invoice', requireAuth, async (req, res) => {
     const user = (req as any).user as User;
     const { amount, gateway = 'zarinpal' } = req.body;
     const cleanAmount = Number(amount);
@@ -760,6 +761,7 @@ export function setupSaasRoutes(app: express.Express) {
       return res.status(400).json({ error: 'حداقل مبلغ افزایش موجودی ۱۰,۰۰۰ تومان است.' });
     }
 
+    const settings = db.getSettings();
     const trackingCode = `TXN-${Math.floor(1000000 + Math.random() * 9000000)}`;
     const tx = db.addTransaction({
       userId: user.id,
@@ -771,14 +773,127 @@ export function setupSaasRoutes(app: express.Express) {
       trackingCode,
     });
 
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+
+    // 1. ZarinPal Real REST API v4 flow
+    if (gateway === 'zarinpal') {
+      const zpConfig = settings.gateways.zarinpal;
+      if (!zpConfig.enabled) {
+        return res.status(400).json({ error: 'درگاه پرداخت زرین‌پال در حال حاضر توسط مدیریت سامانه غیرفعال است.' });
+      }
+
+      const merchant = (zpConfig.merchantId || '').trim();
+      if (!merchant || merchant === '00000000-0000-0000-0000-000000000000') {
+        return res.status(400).json({
+          error: 'مرچنت کد ۳۶ کاراکتری زرین‌پال در پنل مدیریت هنوز تنظیم نشده است. لطفاً مدیر سامانه کد اختصاصی پذیرنده زرین‌پال را در پنل مدیریت ثبت کند.',
+        });
+      }
+
+      const callbackUrl = `${protocol}://${host}/api/payment/zarinpal/callback?txId=${tx.id}`;
+      const zpResult = await zarinpalService.requestPayment({
+        merchantId: merchant,
+        amountTomans: cleanAmount,
+        isSandbox: zpConfig.isSandbox,
+        currency: zpConfig.currency || 'IRT',
+        description: `افزایش اعتبار کیف پول کاربر ${user.name || user.phone}`,
+        callbackUrl,
+        mobile: user.phone,
+        email: user.email || undefined,
+        orderId: tx.id,
+      });
+
+      if (!zpResult.success) {
+        tx.status = 'failed';
+        db.saveDatabase();
+        return res.status(400).json({
+          error: zpResult.error || 'خطا در ارتباط با وب‌سرویس زرین‌پال',
+          details: zpResult,
+        });
+      }
+
+      // Store authority on transaction record
+      tx.authority = zpResult.authority;
+      db.saveDatabase();
+
+      return res.json({
+        success: true,
+        transactionId: tx.id,
+        trackingCode: tx.trackingCode,
+        authority: zpResult.authority,
+        amount: cleanAmount,
+        gateway: 'zarinpal',
+        paymentUrl: zpResult.paymentUrl, // Official ZarinPal StartPay URL
+      });
+    }
+
+    // Direct sandbox/fallback checkout URL
     return res.json({
       success: true,
       transactionId: tx.id,
       trackingCode,
       amount: cleanAmount,
       gateway,
-      paymentUrl: `/api/payment/simulate-checkout?txId=${tx.id}`,
+      paymentUrl: `/payment/gateway/${tx.id}`,
     });
+  });
+
+  // ZarinPal Callback Handler (Invoked when user returns from payment.zarinpal.com/pg/StartPay/...)
+  app.get('/api/payment/zarinpal/callback', async (req, res) => {
+    const authority = (req.query.Authority || req.query.authority) as string;
+    const status = (req.query.Status || req.query.status) as string;
+    const txId = (req.query.txId || req.query.order_id) as string;
+
+    const transactions = db.getTransactions();
+    const tx = transactions.find(t => (txId && t.id === txId) || (authority && t.authority === authority));
+
+    if (!tx) {
+      return res.redirect('/?payment=error&message=' + encodeURIComponent('تراکنش مالی در سامانه یافت نشد.'));
+    }
+
+    // If transaction was already verified
+    if (tx.status === 'success') {
+      return res.redirect(`/?payment=success&txId=${tx.id}&amount=${tx.amount}&trackingCode=${tx.trackingCode}`);
+    }
+
+    if (status !== 'OK') {
+      tx.status = 'failed';
+      db.saveDatabase();
+      return res.redirect(`/?payment=canceled&txId=${tx.id}&message=` + encodeURIComponent('پرداخت توسط خریدار در درگاه بانک لغو شد یا ناموفق بود.'));
+    }
+
+    // Call ZarinPal verify endpoint
+    const settings = db.getSettings();
+    const zpConfig = settings.gateways.zarinpal;
+
+    const verifyResult = await zarinpalService.verifyPayment({
+      merchantId: zpConfig.merchantId,
+      amountTomans: tx.amount,
+      isSandbox: zpConfig.isSandbox,
+      currency: zpConfig.currency || 'IRT',
+      authority,
+    });
+
+    if (verifyResult.success) {
+      tx.status = 'success';
+      tx.trackingCode = String(verifyResult.ref_id || tx.trackingCode);
+      tx.refId = verifyResult.ref_id;
+      tx.cardPan = verifyResult.card_pan;
+      tx.fee = verifyResult.fee;
+
+      const user = db.getUserById(tx.userId);
+      if (user) {
+        user.walletBalance = (user.walletBalance || 0) + tx.amount;
+        db.updateUser(user.id, { walletBalance: user.walletBalance });
+      }
+      db.saveDatabase();
+
+      return res.redirect(`/?payment=success&txId=${tx.id}&amount=${tx.amount}&trackingCode=${verifyResult.ref_id || tx.trackingCode}&cardPan=${verifyResult.card_pan || ''}`);
+    } else {
+      tx.status = 'failed';
+      db.saveDatabase();
+      return res.redirect(`/?payment=failed&txId=${tx.id}&message=` + encodeURIComponent(verifyResult.error || 'تراکنش توسط وب‌سرویس زرین‌پال تایید نشد.'));
+    }
   });
 
   // Verify / Complete Payment (Simulated instant checkout for seamless testing)
@@ -1506,6 +1621,17 @@ export function setupSaasRoutes(app: express.Express) {
       message: smsResult.message,
       gatewayRaw: smsResult.gatewayRaw,
     });
+  });
+
+  // Admin Test Zarinpal Web-Service Connection
+  app.post('/api/admin/gateways/test-zarinpal', requireAdmin, async (req, res) => {
+    const { merchantId, isSandbox } = req.body;
+    const settings = db.getSettings();
+    const effectiveMerchant = (merchantId || settings.gateways.zarinpal.merchantId || '').trim();
+    const effectiveSandbox = isSandbox !== undefined ? isSandbox : settings.gateways.zarinpal.isSandbox;
+
+    const result = await zarinpalService.testConnection(effectiveMerchant, effectiveSandbox);
+    return res.json(result);
   });
 
   // Admin Coupons Management
