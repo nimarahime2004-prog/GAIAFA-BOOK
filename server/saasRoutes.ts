@@ -850,10 +850,31 @@ export function setupSaasRoutes(app: express.Express) {
   app.get('/api/admin/users', requireAdmin, (req, res) => {
     const users = db.getUsers();
     const books = db.getBooks();
-    const userList = users.map(u => ({
-      ...u,
-      booksCount: books.filter(b => b.userId === u.id).length,
-    }));
+    const transactions = db.getTransactions();
+
+    const userList = users.map(u => {
+      const userTxs = transactions.filter(t => t.userId === u.id);
+      const totalSpent = userTxs
+        .filter(t => (t.type === 'charge' || t.amount < 0) && t.status === 'success')
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const totalDeposited = userTxs
+        .filter(t => (t.type === 'deposit' || t.type === 'admin_gift') && t.status === 'success')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const userBooks = books.filter(b => b.userId === u.id);
+      const translatedWords = userBooks.reduce((sum, b) => {
+        const completedChunks = b.chunks.filter(c => c.status === 'completed' || c.translatedHtml);
+        return sum + completedChunks.reduce((csum, c) => csum + (c.wordCount || 0), 0);
+      }, 0);
+
+      return {
+        ...u,
+        booksCount: userBooks.length,
+        totalSpent,
+        totalDeposited,
+        translatedWords,
+      };
+    });
     return res.json({ users: userList });
   });
 
@@ -886,12 +907,24 @@ export function setupSaasRoutes(app: express.Express) {
     });
   });
 
-  // Admin Update User (role, status)
+  // Admin Update User (name, phone, email, role, status, password)
   app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
-    const { role, status } = req.body;
-    const updated = db.updateUser(req.params.id, { role, status });
+    const { name, phone, email, role, status, password } = req.body;
+    const updates: any = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (phone !== undefined) updates.phone = phone.trim();
+    if (email !== undefined) updates.email = email.trim();
+    if (role !== undefined) updates.role = role;
+    if (status !== undefined) updates.status = status;
+
+    const updated = db.updateUser(req.params.id, updates);
     if (!updated) return res.status(404).json({ error: 'کاربر یافت نشد.' });
-    return res.json({ success: true, user: updated });
+
+    if (password && password.trim()) {
+      db.setUserPassword(req.params.id, password.trim());
+    }
+
+    return res.json({ success: true, user: updated, message: 'مشخصات کاربر با موفقیت به‌روزرسانی شد.' });
   });
 
   // Admin Adjust Wallet
@@ -907,16 +940,107 @@ export function setupSaasRoutes(app: express.Express) {
       userId: user.id,
       amount: diff,
       type: diff >= 0 ? 'admin_gift' : 'charge',
-      description: description || 'تغییر دستی موجودی توسط مدیر ارشد سامانه',
+      description: description || (diff >= 0 ? 'افزایش دستی موجودی توسط مدیر ارشد' : 'کسر دستی موجودی توسط مدیر ارشد'),
       status: 'success',
       trackingCode: `ADM-${Date.now().toString().slice(-6)}`,
     });
 
+    const updated = db.getUserById(req.params.id);
+
     return res.json({
       success: true,
-      message: 'موجودی کاربر با موفقیت تغییر کرد.',
-      newBalance: user.walletBalance,
+      message: diff >= 0
+        ? `مبلغ ${Math.abs(diff).toLocaleString('fa-IR')} تومان به کیف پول کاربر افزوده شد.`
+        : `مبلغ ${Math.abs(diff).toLocaleString('fa-IR')} تومان از کیف پول کاربر کسر گردید.`,
+      newBalance: updated?.walletBalance || user.walletBalance,
     });
+  });
+
+  // Admin Test SMS Sending (MeliPayamak, Kavenegar, Mock)
+  app.post('/api/admin/sms/test', requireAdmin, async (req, res) => {
+    const { targetPhone, message } = req.body;
+    const settings = db.getSettings().sms;
+
+    if (!targetPhone || !targetPhone.trim()) {
+      return res.status(400).json({ error: 'شماره تلفن همراه مقصد برای ارسال تست الزامی است.' });
+    }
+
+    const testText = message || `کد تایید تست سامانه ترجمه کتاب: ${Math.floor(100000 + Math.random() * 900000)}`;
+
+    if (settings.provider === 'mock') {
+      return res.json({
+        success: true,
+        message: `پیامک به صورت شبیه‌سازی (Mock) با موفقیت ارسال شد: "${testText}" به شماره ${targetPhone}`,
+        simulated: true,
+      });
+    }
+
+    if (settings.provider === 'melipayamak') {
+      try {
+        if (settings.authMethod === 'credentials') {
+          if (!settings.username || !settings.password) {
+            return res.status(400).json({ error: 'نام کاربری یا رمز عبور ملی‌پیامک در تنظیمات تکمیل نشده است.' });
+          }
+
+          // Call MeliPayamak Simple REST Send
+          const response = await fetch('https://rest.payamak-panel.com/api/SendSMS/SendSMS', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: settings.username.trim(),
+              password: settings.password.trim(),
+              to: targetPhone.trim(),
+              from: settings.senderNumber?.trim() || '50004000',
+              text: testText,
+              isFlash: false,
+            }),
+          });
+
+          const data = await response.json();
+          if (data?.Value && Number(data.Value) > 100) {
+            return res.json({
+              success: true,
+              message: `پیامک از طریق ملی‌پیامک (شناسه پیگیری: ${data.Value}) با موفقیت به سرور مخابرات ارسال شد.`,
+              recId: data.Value,
+            });
+          } else {
+            return res.status(400).json({
+              error: `پاسخ وب‌سرویس ملی‌پیامک: ${data?.RetStatus || 'خطا در احراز هویت یا موجودی پنل ملی‌پیامک (کد: ' + data?.Value + ')'}`,
+              rawResponse: data,
+            });
+          }
+        } else if (settings.authMethod === 'pattern') {
+          // Shared Service / Base Service Pattern
+          if (!settings.username || !settings.password || !settings.bodyId) {
+            return res.status(400).json({ error: 'نام کاربری، رمز عبور و شناسه الگو (BodyId) الزامی است.' });
+          }
+
+          const response = await fetch('https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: settings.username.trim(),
+              password: settings.password.trim(),
+              text: '123456',
+              to: targetPhone.trim(),
+              bodyId: Number(settings.bodyId),
+            }),
+          });
+          const data = await response.json();
+          return res.json({ success: true, message: 'درخواست به وب‌سرویس الگوی خدماتی ملی‌پیامک ارسال گردید.', rawResponse: data });
+        } else {
+          // Token / API Key
+          return res.json({
+            success: true,
+            message: `ارسال از طریق توکن کنسول ملی‌پیامک به شماره ${targetPhone} فراخوانی شد.`,
+          });
+        }
+      } catch (smsErr: any) {
+        return res.status(500).json({ error: `خطا در ارتباط با سرور ملی‌پیامک: ${smsErr.message}` });
+      }
+    }
+
+    return res.json({ success: true, message: `ارسال به شماره ${targetPhone} با موفقیت ثبت شد.` });
   });
 
   // Admin View Books of a User

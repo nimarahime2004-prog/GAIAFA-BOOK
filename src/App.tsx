@@ -499,6 +499,15 @@ export default function App() {
     const chunk = project.chunks.find((c) => c.id === chunkId);
     if (!chunk) return;
 
+    // Check user wallet balance if applicable
+    const chunkWords = chunk.wordCount || 100;
+    const requiredCost = Math.round(chunkWords * costPerWord);
+    if (currentUser && currentUser.role !== 'admin' && (currentUser.walletBalance || 0) < requiredCost) {
+      alert(`موجودی کیف پول شما (${(currentUser.walletBalance || 0).toLocaleString('fa-IR')} تومان) برای ترجمه این بخش (${requiredCost.toLocaleString('fa-IR')} تومان) کافی نیست. لطفاً کیف پول خود را شارژ فرمایید.`);
+      setIsWalletModalOpen(true);
+      return;
+    }
+
     // Update chunk status to queued
     const updatedChunks = project.chunks.map((c) =>
       c.id === chunkId ? { ...c, status: 'queued' as const, errorMessage: undefined } : c
@@ -538,6 +547,13 @@ export default function App() {
           : c
       );
       handleUpdateProject({ ...project, chunks: completed });
+
+      // Automatically advance to the next chunk/page so user doesn't have to manually click next
+      const currentIdx = project.chunks.findIndex((c) => c.id === chunkId);
+      if (currentIdx !== -1 && currentIdx < project.chunks.length - 1) {
+        const nextChunk = project.chunks[currentIdx + 1];
+        setActiveChunkId(nextChunk.id);
+      }
     } catch (err: any) {
       const failed = project.chunks.map((c) =>
         c.id === chunkId ? { ...c, status: 'error' as const, errorMessage: err.message } : c
@@ -546,7 +562,7 @@ export default function App() {
     }
   };
 
-  // Batch translate inside workspace with graceful per-chunk stop
+  // Batch translate inside workspace with graceful per-chunk stop and wallet check
   const handleBatchTranslate = async () => {
     const pending = project.chunks.filter((c) => c.status !== 'completed');
     if (pending.length === 0) {
@@ -562,6 +578,15 @@ export default function App() {
     for (let i = 0; i < pending.length; i++) {
       if (isBatchCancelledRef.current) break;
       const c = pending[i];
+
+      // Check wallet before translating this chunk
+      const requiredCost = Math.round((c.wordCount || 100) * costPerWord);
+      if (currentUser && currentUser.role !== 'admin' && (currentUser.walletBalance || 0) < requiredCost) {
+        alert(`موجودی کیف پول شما برای ادامه ترجمه متوالی ناکافی است (${(currentUser.walletBalance || 0).toLocaleString('fa-IR')} تومان). برای ترجمه بخش «${c.chapterTitle}» به ${requiredCost.toLocaleString('fa-IR')} تومان موجودی نیاز است. لطفاً کیف پول خود را شارژ فرمایید.`);
+        setIsWalletModalOpen(true);
+        break;
+      }
+
       setActiveChunkId(c.id);
       setBatchProgress({ current: i + 1, total: pending.length, secondsToNextCall: 0 });
       

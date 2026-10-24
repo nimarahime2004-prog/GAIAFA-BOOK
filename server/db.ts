@@ -136,10 +136,14 @@ export interface SystemSettings {
     };
   };
   sms: {
-    provider: 'melipayamak' | 'kavenegar' | 'smsir' | 'mock';
-    apiKey: string;
+    provider: 'melipayamak' | 'kavenegar' | 'farazsms' | 'smsir' | 'mock';
+    authMethod: 'credentials' | 'pattern' | 'apikey';
+    username?: string;
+    password?: string;
+    apiKey?: string;
     senderNumber: string;
-    patternCode: string;
+    bodyId?: string;
+    patternCode?: string;
   };
   security: {
     maintenanceMode: boolean;
@@ -259,9 +263,13 @@ const DEFAULT_SETTINGS: SystemSettings = {
   },
   sms: {
     provider: 'melipayamak',
-    apiKey: 'sample-sms-key',
+    authMethod: 'credentials',
+    username: '',
+    password: '',
+    apiKey: '',
     senderNumber: '50004000',
-    patternCode: '12345',
+    bodyId: '',
+    patternCode: '',
   },
   security: {
     maintenanceMode: false,

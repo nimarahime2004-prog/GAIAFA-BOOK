@@ -604,7 +604,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                         <span>تلاش مجدد</span>
                       </button>
 
-                      {onOpenServerPoolModal && (
+                      {isAdmin && onOpenServerPoolModal && (
                         <button
                           onClick={onOpenServerPoolModal}
                           className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition flex items-center justify-center gap-1.5"

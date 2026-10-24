@@ -92,10 +92,14 @@ export interface SystemSettings {
     };
   };
   sms: {
-    provider: 'melipayamak' | 'kavenegar' | 'smsir' | 'mock';
-    apiKey: string;
+    provider: 'melipayamak' | 'kavenegar' | 'farazsms' | 'smsir' | 'mock';
+    authMethod: 'credentials' | 'pattern' | 'apikey';
+    username?: string;
+    password?: string;
+    apiKey?: string;
     senderNumber: string;
-    patternCode: string;
+    bodyId?: string;
+    patternCode?: string;
   };
   security: {
     maintenanceMode: boolean;

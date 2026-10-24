@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { BookProject } from '../types.ts';
 import { BOOK_THEMES, DEFAULT_DESIGN_CONFIG } from '../constants/themes.ts';
 import { groupChunksIntoChapters } from '../utils/exporter.ts';
@@ -9,6 +10,17 @@ interface PrintDocumentProps {
 export const PrintDocument: React.FC<PrintDocumentProps> = ({ project }) => {
   const design = project.designConfig || DEFAULT_DESIGN_CONFIG;
   const theme = BOOK_THEMES[design.themeId] || BOOK_THEMES.spiritual;
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--print-page-bg', theme.pageBgColor);
+      document.body.style.setProperty('--print-page-bg', theme.pageBgColor);
+      return () => {
+        document.documentElement.style.removeProperty('--print-page-bg');
+        document.body.style.removeProperty('--print-page-bg');
+      };
+    }
+  }, [theme.pageBgColor]);
 
   const fontSizeClass =
     design.fontSize === 'small'

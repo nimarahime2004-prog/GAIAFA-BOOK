@@ -41,7 +41,12 @@ import {
   BookCheck,
   Printer,
   FileCode,
-  UserPlus
+  UserPlus,
+  Wallet,
+  RotateCw,
+  Save,
+  Info,
+  Edit3
 } from 'lucide-react';
 import {
   User,
@@ -253,6 +258,18 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
   });
   const [createUserLoading, setCreateUserLoading] = useState(false);
   const [createUserError, setCreateUserError] = useState<string | null>(null);
+
+  // Edit User State
+  const [editUserModal, setEditUserModal] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    role: 'admin' | 'user';
+    status: 'active' | 'banned';
+    password?: string;
+  } | null>(null);
+  const [editUserLoading, setEditUserLoading] = useState(false);
 
   // API Pool Data
   const [apiKeys, setApiKeys] = useState<any[]>([]);
@@ -513,6 +530,42 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
     }
   };
 
+  // Admin Save Edit User (Profile, role, status, password)
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUserModal) return;
+    setEditUserLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editUserModal.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editUserModal.name,
+          phone: editUserModal.phone,
+          email: editUserModal.email,
+          role: editUserModal.role,
+          status: editUserModal.status,
+          password: editUserModal.password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'خطا در ویرایش اطلاعات کاربر');
+      } else {
+        setEditUserModal(null);
+        fetchUsers();
+        alert('اطلاعات کاربر با موفقیت به‌روزرسانی شد.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'خطا در ارتباط با سرور');
+    } finally {
+      setEditUserLoading(false);
+    }
+  };
+
   // Toggle User Role or Status
   const handleUpdateUserStatus = async (userId: string, role: string, status: string) => {
     try {
@@ -701,26 +754,49 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         <meta charset="utf-8">
         <title>${title}</title>
         <style>
-          body { font-family: Tahoma, Arial, sans-serif; direction: rtl; text-align: right; padding: 24px; line-height: 2.2; font-size: 14px; color: #111; }
-          h1 { text-align: center; font-size: 24px; margin-bottom: 6px; }
-          .meta { text-align: center; color: #555; margin-bottom: 24px; font-size: 12px; }
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+          *, *::before, *::after {
+            box-sizing: border-box;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #faf8f5 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            font-family: 'Vazirmatn', Tahoma, 'B Nazanin', Arial, sans-serif;
+            direction: rtl;
+            text-align: right;
+            color: #1e293b;
+          }
+          .page-wrapper {
+            padding: 24mm 20mm 20mm 20mm;
+            min-height: 100vh;
+          }
+          h1 { text-align: center; font-size: 24px; margin-bottom: 8px; color: #0f172a; font-weight: 800; }
+          .meta { text-align: center; color: #64748b; margin-bottom: 24px; font-size: 13px; }
           .chapter { page-break-before: always; margin-top: 24px; }
           .chapter:first-of-type { page-break-before: avoid; }
-          h2 { font-size: 17px; border-bottom: 2px solid #ddd; padding-bottom: 6px; margin-bottom: 14px; color: #b45309; }
-          .chapter-content { text-align: justify; }
+          h2 { font-size: 18px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 16px; color: #b45309; }
+          .chapter-content { text-align: justify; line-height: 2.2; font-size: 14px; }
           @media print {
-            body { padding: 0; }
+            body { background-color: #faf8f5 !important; }
           }
         </style>
       </head>
       <body>
-        <h1>${title}</h1>
-        <div class="meta">
-          ${fullBook.originalTitle ? `<span>عنوان زبان اصلی: ${fullBook.originalTitle} | </span>` : ''}
-          ${fullBook.author ? `<span>نویسنده: ${fullBook.author}</span>` : ''}
+        <div class="page-wrapper">
+          <h1>${title}</h1>
+          <div class="meta">
+            ${fullBook.originalTitle ? `<span>عنوان زبان اصلی: ${fullBook.originalTitle} | </span>` : ''}
+            ${fullBook.author ? `<span>نویسنده: ${fullBook.author}</span>` : ''}
+          </div>
+          <hr style="border: 0; border-top: 1px solid #cbd5e1; margin-bottom: 24px;"/>
+          ${chaptersHtml}
         </div>
-        <hr/>
-        ${chaptersHtml}
         <script>
           window.onload = function() { window.print(); }
         </script>
@@ -2360,10 +2436,11 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                       <th className="py-3.5 px-4">کاربر</th>
                       <th className="py-3.5 px-4">اطلاعات تماس</th>
                       <th className="py-3.5 px-4">نقش</th>
-                      <th className="py-3.5 px-4">موجودی کیف پول</th>
-                      <th className="py-3.5 px-4">تعداد کتاب‌ها</th>
+                      <th className="py-3.5 px-4">مانده کیف پول</th>
+                      <th className="py-3.5 px-4">کل مصرف‌شده</th>
+                      <th className="py-3.5 px-4">کتاب‌ها و کلمات</th>
                       <th className="py-3.5 px-4">وضعیت</th>
-                      <th className="py-3.5 px-4 text-left">عملیات و هدیه سریع</th>
+                      <th className="py-3.5 px-4 text-left">عملیات و مدیریت</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
@@ -2386,8 +2463,15 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                             {u.role === 'admin' ? 'مدیر ارشد' : 'کاربر عادی'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-white font-mono">
-                          {u.walletBalance.toLocaleString('fa-IR')} <span className="text-[10px] text-slate-400 font-normal">تومان</span>
+                        <td className="py-3.5 px-4 font-bold text-emerald-400 font-mono">
+                          <span className="bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                            {(u.walletBalance || 0).toLocaleString('fa-IR')} <span className="text-[10px] text-emerald-300 font-normal">تومان</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-purple-400 font-mono">
+                          <span className="bg-purple-500/10 px-2 py-1 rounded-lg border border-purple-500/20">
+                            {(u.totalSpent || 0).toLocaleString('fa-IR')} <span className="text-[10px] text-purple-300 font-normal">تومان</span>
+                          </span>
                         </td>
                         <td className="py-3.5 px-4">
                           <button
@@ -2395,7 +2479,7 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                             className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold border border-amber-500/20 text-[11px] flex items-center gap-1"
                           >
                             <BookOpen className="w-3 h-3" />
-                            <span>{u.booksCount || 0} کتاب (مشاهده)</span>
+                            <span>{u.booksCount || 0} کتاب ({(u.translatedWords || 0).toLocaleString('fa-IR')} کلمه)</span>
                           </button>
                         </td>
                         <td className="py-3.5 px-4">
@@ -2409,37 +2493,45 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                         </td>
                         <td className="py-3.5 px-4 text-left">
                           <div className="flex items-center justify-end flex-wrap gap-1.5">
+                            {/* Edit User Button */}
                             <button
-                              onClick={() => handleQuickGift(u.id, 50000, 'هدیه تشویقی مدیریت')}
-                              className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold transition"
-                              title="شارژ ۵۰,۰۰۰ تومان هدیه با یک کلیک"
+                              onClick={() => setEditUserModal({
+                                id: u.id,
+                                name: u.name,
+                                phone: u.phone,
+                                email: u.email || '',
+                                role: u.role,
+                                status: u.status,
+                                password: '',
+                              })}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold flex items-center gap-1 transition"
+                              title="ویرایش مشخصات نام، شماره، نقش، رمز عبور"
                             >
-                              +۵۰ هدیه
+                              <Edit3 className="w-3 h-3 text-indigo-400" />
+                              <span>ویرایش</span>
                             </button>
+
+                            {/* Wallet Adjust Button */}
                             <button
-                              onClick={() => handleQuickGift(u.id, 100000, 'هدیه تشویقی مدیریت')}
-                              className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-[10px] font-bold transition"
-                              title="شارژ ۱۰۰,۰۰۰ تومان هدیه با یک کلیک"
+                              onClick={() => setAdjustWalletModal({ user: u, amount: 50000, description: 'شارژ کیف پول توسط مدیر' })}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold flex items-center gap-1 transition"
+                              title="افزایش یا کسر موجودی کیف پول"
                             >
-                              +۱۰۰ هدیه
+                              <Wallet className="w-3 h-3 text-emerald-400" />
+                              <span>کیف پول (+/-)</span>
                             </button>
-                            <button
-                              onClick={() => setAdjustWalletModal({ user: u, amount: 50000, description: 'شارژ تشویقی مدیر' })}
-                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
-                              title="تغییر دستی موجودی کیف پول"
-                            >
-                              کیف پول
-                            </button>
+
                             <button
                               onClick={() => handleUpdateUserStatus(u.id, u.role === 'admin' ? 'user' : 'admin', u.status)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+                              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
                               title="تغییر نقش کاربری"
                             >
-                              {u.role === 'admin' ? 'تنزیل به کاربر' : 'ارتقا به مدیر'}
+                              {u.role === 'admin' ? 'کاربر عادی' : 'مدیر'}
                             </button>
+
                             <button
                               onClick={() => handleUpdateUserStatus(u.id, u.role, u.status === 'active' ? 'banned' : 'active')}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] ${
+                              className={`px-2 py-1 rounded-lg text-[10px] ${
                                 u.status === 'active'
                                   ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
                                   : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
@@ -2455,6 +2547,122 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                 </table>
               </div>
             </div>
+
+            {/* Modal: Edit User Profile */}
+            {editUserModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+                <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Edit3 className="w-5 h-5 text-indigo-400" />
+                      <h3 className="font-bold text-base text-white">ویرایش مشخصات کاربر: {editUserModal.name}</h3>
+                    </div>
+                    <button
+                      onClick={() => setEditUserModal(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveEditUser} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">نام و نام خانوادگی:</label>
+                        <input
+                          type="text"
+                          value={editUserModal.name}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, name: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">شماره تلفن همراه:</label>
+                        <input
+                          type="tel"
+                          dir="ltr"
+                          value={editUserModal.phone}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, phone: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">آدرس ایمیل:</label>
+                        <input
+                          type="email"
+                          dir="ltr"
+                          value={editUserModal.email}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, email: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">نقش کاربری:</label>
+                        <select
+                          value={editUserModal.role}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, role: e.target.value as any })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                        >
+                          <option value="user">کاربر عادی سامانه</option>
+                          <option value="admin">مدیر ارشد (دسترسی کامل)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">وضعیت حساب:</label>
+                        <select
+                          value={editUserModal.status}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, status: e.target.value as any })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                        >
+                          <option value="active">فعال (مجاز به استفاده)</option>
+                          <option value="banned">مسدود (غیرفعال)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">تغییر رمز عبور (اختیاری):</label>
+                        <input
+                          type="password"
+                          dir="ltr"
+                          placeholder="در صورت خالی بودن تغییر نمی‌کند"
+                          value={editUserModal.password || ''}
+                          onChange={(e) => setEditUserModal({ ...editUserModal, password: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-slate-800">
+                      <button
+                        type="submit"
+                        disabled={editUserLoading}
+                        className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+                      >
+                        {editUserLoading ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        <span>ذخیره تغییرات مشخصات کاربر</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditUserModal(null)}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                      >
+                        انصراف
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {/* Modal: Inspect Specific User Books */}
             {selectedUserBooks && (
@@ -2514,35 +2722,110 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
             {adjustWalletModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
                 <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
-                  <h3 className="font-bold text-base text-white mb-1">
-                    تغییر موجودی کیف پول کاربر: {adjustWalletModal.user.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-4">
-                    موجودی فعلی: <b>{adjustWalletModal.user.walletBalance.toLocaleString('fa-IR')} تومان</b>
-                  </p>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-emerald-400" />
+                      <h3 className="font-bold text-base text-white">مدیریت کیف پول: {adjustWalletModal.user.name}</h3>
+                    </div>
+                    <button
+                      onClick={() => setAdjustWalletModal(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80 mb-4 flex items-center justify-between text-xs">
+                    <span className="text-slate-400">موجودی فعلی کاربر:</span>
+                    <span className="font-bold font-mono text-emerald-400 text-sm">
+                      {(adjustWalletModal.user.walletBalance || 0).toLocaleString('fa-IR')} تومان
+                    </span>
+                  </div>
 
                   <div className="space-y-4">
+                    {/* Quick Preset Adjust Buttons */}
+                    <div>
+                      <span className="text-[11px] text-slate-400 block mb-1.5 font-semibold">انتخاب سریع مبلغ:</span>
+                      <div className="grid grid-cols-3 gap-1.5 text-xs font-mono">
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: 50000, description: 'شارژ تشویقی ۵۰ هزار تومان' })}
+                          className="py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold"
+                        >
+                          +۵۰,۰۰۰
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: 100000, description: 'شارژ تشویقی ۱۰۰ هزار تومان' })}
+                          className="py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold"
+                        >
+                          +۱۰۰,۰۰۰
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: 200000, description: 'شارژ تشویقی ۲۰۰ هزار تومان' })}
+                          className="py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold"
+                        >
+                          +۲۰۰,۰۰۰
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: -20000, description: 'کسر ۲۰ هزار تومان توسط مدیر' })}
+                          className="py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold"
+                        >
+                          -۲۰,۰۰۰
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: -50000, description: 'کسر ۵۰ هزار تومان توسط مدیر' })}
+                          className="py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold"
+                        >
+                          -۵۰,۰۰۰
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustWalletModal({ ...adjustWalletModal, amount: -100000, description: 'کسر ۱۰۰ هزار تومان توسط مدیر' })}
+                          className="py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold"
+                        >
+                          -۱۰۰,۰۰۰
+                        </button>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        مبلغ تغییر (تومان - مثبت برای شارژ، منفی برای کسر):
+                        مبلغ دلخواه تغییر (تومان - عدد مثبت برای اضافه کردن، منفی برای کسر):
                       </label>
                       <input
                         type="number"
-                        step="10000"
+                        step="5000"
                         value={adjustWalletModal.amount}
                         onChange={(e) => setAdjustWalletModal({ ...adjustWalletModal, amount: Number(e.target.value) })}
                         className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm font-mono focus:border-amber-500 focus:outline-none"
                       />
                     </div>
 
+                    {/* Projected Balance Preview */}
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center justify-between">
+                      <span className="text-slate-400">موجودی جدید پس از اعمال:</span>
+                      <span className={`font-bold font-mono text-sm ${
+                        (adjustWalletModal.user.walletBalance + adjustWalletModal.amount) >= 0
+                          ? 'text-white'
+                          : 'text-rose-400'
+                      }`}>
+                        {Math.max(0, adjustWalletModal.user.walletBalance + adjustWalletModal.amount).toLocaleString('fa-IR')} تومان
+                      </span>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        علت / توضیحات ثبت در تاریخچه کاربر:
+                        علت و توضیحات تغییر موجودی:
                       </label>
                       <input
                         type="text"
                         value={adjustWalletModal.description}
                         onChange={(e) => setAdjustWalletModal({ ...adjustWalletModal, description: e.target.value })}
+                        placeholder="مثلاً: هدیه شارژ تشویقی یا کسر بابت خدمات"
                         className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-amber-500 focus:outline-none"
                       />
                     </div>
@@ -2550,9 +2833,9 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={handleSaveWalletAdjustment}
-                        className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 text-white font-bold text-xs shadow-md transition"
                       >
-                        ثبت و اعمال تغییر
+                        {adjustWalletModal.amount >= 0 ? `شارژ +${adjustWalletModal.amount.toLocaleString('fa-IR')} تومان` : `کسر ${Math.abs(adjustWalletModal.amount).toLocaleString('fa-IR')} تومان`}
                       </button>
                       <button
                         onClick={() => setAdjustWalletModal(null)}
@@ -4835,14 +5118,19 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
 
             {/* SMS Provider Config */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <h3 className="font-bold text-base text-amber-400 mb-4 flex items-center gap-2">
-                <Send className="w-5 h-5" />
-                <span>پیکربندی پنل پیامکی (SMS OTP Gateway)</span>
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <h3 className="font-bold text-base text-amber-400 flex items-center gap-2">
+                  <Send className="w-5 h-5 text-amber-400" />
+                  <span>پیکربندی پنل پیامکی (SMS OTP Gateway - ملی‌پیامک و وب‌سرویس‌ها)</span>
+                </h3>
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 w-fit">
+                  {settings.sms.provider === 'melipayamak' ? 'سامانه ملی‌پیامک (فعال)' : 'درگاه پیامک فعال'}
+                </span>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">ارائه‌دهنده پیامک:</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">سامانه ارائه‌دهنده پیامک:</label>
                   <select
                     value={settings.sms.provider}
                     onChange={(e) =>
@@ -4856,62 +5144,167 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                     <option value="melipayamak">سامانه ملی پیامک (MeliPayamak)</option>
                     <option value="kavenegar">کاوه‌نگار (Kavenegar)</option>
                     <option value="smsir">SMS.ir (سامانه پیام کوتاه)</option>
-                    <option value="mock">شبیه‌ساز تستی (بدون مصرف شارژ)</option>
+                    <option value="mock">شبیه‌ساز تستی (توسعه محلی و رایگان)</option>
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">کلید API یا نام کاربری پنل:</label>
-                  <input
-                    type="password"
-                    dir="ltr"
-                    value={settings.sms.apiKey}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        sms: { ...settings.sms, apiKey: e.target.value },
-                      })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
+                {settings.sms.provider === 'melipayamak' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">روش احراز هویت در ملی‌پیامک:</label>
+                    <select
+                      value={settings.sms.authMethod || 'credentials'}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, authMethod: e.target.value as any },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/40 text-amber-300 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="credentials">نام کاربری و کلمه عبور پنل (وب‌سرویس REST/SOAP)</option>
+                      <option value="pattern">ارسال خدماتی با شناسه قالب (BodyId / عبور از بلک‌لیست)</option>
+                      <option value="apikey">کلید توکن کنسول (API Token)</option>
+                    </select>
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">شماره خط اختصاصی یا خدماتی:</label>
-                  <input
-                    type="text"
-                    dir="ltr"
-                    value={settings.sms.senderNumber}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        sms: { ...settings.sms, senderNumber: e.target.value },
-                      })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
+                {settings.sms.provider === 'melipayamak' && settings.sms.authMethod !== 'apikey' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">نام کاربری ملی‌پیامک (Username):</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="e.g. 09121234567 یا نام کاربری"
+                      value={settings.sms.username || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, username: e.target.value },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {settings.sms.provider === 'melipayamak' && settings.sms.authMethod !== 'apikey' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">کلمه عبور پنل ملی‌پیامک (Password):</label>
+                    <input
+                      type="password"
+                      dir="ltr"
+                      placeholder="••••••••"
+                      value={settings.sms.password || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, password: e.target.value },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {settings.sms.provider === 'melipayamak' && settings.sms.authMethod === 'pattern' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">کد متن یا شناسه الگو (BodyId / Pattern):</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="e.g. 123456 (کد متن تایید شده در وب‌سرویس خدماتی)"
+                      value={settings.sms.bodyId || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, bodyId: e.target.value },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/40 text-amber-200 text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {(settings.sms.provider !== 'melipayamak' || settings.sms.authMethod === 'apikey') && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">کلید API یا توکن امنیتی:</label>
+                    <input
+                      type="password"
+                      dir="ltr"
+                      placeholder="API Key / Token"
+                      value={settings.sms.apiKey || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, apiKey: e.target.value },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {settings.sms.authMethod !== 'pattern' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">شماره خط اختصاصی یا فرستنده:</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="e.g. 50004000... یا 1000..."
+                      value={settings.sms.senderNumber || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          sms: { ...settings.sms, senderNumber: e.target.value },
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
               </div>
+
+              {settings.sms.provider === 'melipayamak' && (
+                <div className="mb-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+                  <div className="flex items-center gap-1.5 text-amber-400 font-bold mb-1">
+                    <Info className="w-3.5 h-3.5" />
+                    <span>راهنمای اتصال به ملی‌پیامک:</span>
+                  </div>
+                  {settings.sms.authMethod === 'credentials' && (
+                    <p>در روش نام کاربری و پسورد، پیامک‌ها از طریق شماره خط اختصاصی شما ارسال می‌شوند. برای شماره‌هایی که دریافت پیامک‌های تبلیغاتی را بسته‌اند، پیامک ارسال نمی‌شود مگر خط شما خدماتی شده باشد.</p>
+                  )}
+                  {settings.sms.authMethod === 'pattern' && (
+                    <p className="text-emerald-400">در روش خدماتی (BodyId)، پیامک احراز هویت با سرعت بالا و حتی به شماره‌های مسدود تبلیغاتی ارسال خواهد شد. کافیست کد متن ثبت‌شده در کنسول ملی‌پیامک را در فیلد شناسه الگو وارد فرمایید.</p>
+                  )}
+                  {settings.sms.authMethod === 'apikey' && (
+                    <p>در روش توکن، درخواست‌های ارسال مستقیماً با هدر دسترسی به وب‌سرویس RESTful ملی‌پیامک احراز هویت می‌شوند.</p>
+                  )}
+                </div>
+              )}
 
               {/* SMS Test tool */}
               <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-3">
                 <input
                   type="tel"
                   dir="ltr"
-                  placeholder="09121234567"
+                  placeholder="09121234567 (شماره گیرنده تست)"
                   value={testSmsPhone}
                   onChange={(e) => setTestSmsPhone(e.target.value)}
-                  className="w-full sm:w-64 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                  className="w-full sm:w-64 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-500 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleTestSms}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 transition-all"
                 >
                   <Send className="w-3.5 h-3.5 text-amber-400" />
-                  <span>ارسال پیامک آزمایشی</span>
+                  <span>ارسال پیامک آزمایشی به شماره فوق</span>
                 </button>
-                {smsResult && <span className="text-xs text-emerald-400">{smsResult}</span>}
+                {smsResult && (
+                  <span className={`text-xs px-2.5 py-1 rounded-lg ${smsResult.includes('موفقیت') || smsResult.includes('تست') ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
+                    {smsResult}
+                  </span>
+                )}
               </div>
             </div>
 

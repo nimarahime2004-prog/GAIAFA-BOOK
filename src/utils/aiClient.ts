@@ -176,25 +176,23 @@ export async function testServerConnection(
       if (!isHtml) {
         try {
           const data = JSON.parse(rawText);
-          if (res.ok && data?.success) {
-            return {
-              success: true,
-              latencyMs: data.latencyMs || (Date.now() - t0),
-              isDirectClient: false,
-              response: data.response || 'PONG_OK',
-            };
-          }
-          if (mode === 'server') {
-            return {
-              success: false,
-              latencyMs: Date.now() - t0,
-              error: data?.error || `خطای سرور HTTP ${res.status}`,
-              isDirectClient: false,
-            };
-          }
+          return {
+            success: Boolean(data?.success),
+            latencyMs: data.latencyMs || (Date.now() - t0),
+            isDirectClient: false,
+            response: data.response || (data.success ? 'PONG_OK' : undefined),
+            error: data.success ? undefined : (data.error || `خطای سرور HTTP ${res.status}`),
+          };
         } catch {
-          // Parse error, proceed to direct fallback if auto
+          // Parse error, proceed to direct fallback
         }
+      } else if (mode === 'server') {
+        return {
+          success: false,
+          latencyMs: Date.now() - t0,
+          error: 'پاسخ HTML از سرور دریافت شد (ممکن است مسیر /api در Nginx تنظیم نشده باشد).',
+          isDirectClient: false,
+        };
       }
     } catch (backendErr: any) {
       if (mode === 'server') {
@@ -227,7 +225,7 @@ export async function testDirectFromBrowser(server: {
       return {
         success: false,
         latencyMs: Date.now() - t0,
-        error: 'برای اتصال مستقیم به گوگل جمینای در محیط بیلد، وارد کردن کلید Gemini API اختصاصی الزامی است.',
+        error: 'برای اتصال مستقیم به گوگل جمینای از مرورگر، وارد کردن کلید API اختصاصی الزامی است.',
         isDirectClient: true,
       };
     }
@@ -250,7 +248,19 @@ export async function testDirectFromBrowser(server: {
       });
       clearTimeout(timeoutId);
 
-      const data = await res.json();
+      const raw = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        return {
+          success: false,
+          latencyMs: Date.now() - t0,
+          error: `پاسخ HTML از شبکه دریافت شد (احتمالاً به دلیل فیلترینگ مستقیم گوگل در ایران). لطفاً در بالای صفحه حالت اتصال را روی «فقط سرور بک‌اند» قرار دهید.`,
+          isDirectClient: true,
+        };
+      }
+
       if (!res.ok) {
         return {
           success: false,
@@ -271,7 +281,7 @@ export async function testDirectFromBrowser(server: {
       return {
         success: false,
         latencyMs: Date.now() - t0,
-        error: err?.message || 'خطا در اتصال مستقیم به گوگل جمینای از مرورگر (وضعیت اینترنت یا VPN را بررسی فرمایید)',
+        error: err?.message || 'خطا در اتصال مستقیم به گوگل جمینای از مرورگر (وضعیت اینترنت یا فیلترشکن را بررسی فرمایید)',
         isDirectClient: true,
       };
     }

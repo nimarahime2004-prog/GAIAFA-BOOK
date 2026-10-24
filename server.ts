@@ -13,6 +13,7 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import JSZip from 'jszip';
 import { BOOK_THEMES } from './src/constants/themes.ts';
 import { setupSaasRoutes } from './server/saasRoutes.ts';
+import { db } from './server/db.ts';
 
 function cleanChapterTitle(title: string): string {
   if (!title) return 'فصل کتاب';
@@ -428,17 +429,39 @@ app.post('/api/keys/test', async (req, res) => {
   }
 
   // Gemini Key Test
-  const targetKey = (masked ? keyPool.find(k => k.masked === masked) : null) || keyPool[0];
-  const testKey = (apiKey && typeof apiKey === 'string' && apiKey.length > 8) ? apiKey.trim() : (targetKey?.key || process.env.GEMINI_API_KEY);
+  let testKey = (apiKey && typeof apiKey === 'string' && apiKey.length > 8) ? apiKey.trim() : '';
+  const matchedPoolKey = masked ? keyPool.find(k => k.masked === masked) : null;
+
+  if (!testKey && matchedPoolKey?.key && matchedPoolKey.key.length > 8) {
+    testKey = matchedPoolKey.key;
+  }
+
+  if (!testKey && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 8) {
+    testKey = process.env.GEMINI_API_KEY.trim();
+  }
+
+  // Also check database persistent keys saved by admin
+  if (!testKey) {
+    const dbGeminiKeys = db.getApiKeys().filter(k => k.isActive && k.provider === 'gemini' && k.apiKey?.trim().length > 8);
+    if (dbGeminiKeys.length > 0) {
+      testKey = dbGeminiKeys[0].apiKey.trim();
+    }
+  }
 
   if (!testKey) {
-    return res.json({ success: false, error: 'کلید معتبری برای تست در استخر یافت نشد.' });
+    return res.json({
+      success: false,
+      latencyMs: 0,
+      error: 'کلید دسترسی Gemini API در سرور یافت نشد. لطفاً در پنل مدیریت یا فایل .env کلید معتبر وارد نمایید.',
+      testedByServerIp: true,
+    });
   }
 
   const candidateModels = Array.from(new Set([
     model || 'gemini-3.8-flash',
     'gemini-3.1-flash-lite',
-    'gemini-flash-latest'
+    'gemini-flash-latest',
+    'gemini-2.5-flash'
   ]));
 
   const t0 = Date.now();
@@ -477,10 +500,10 @@ app.post('/api/keys/test', async (req, res) => {
 
   const latencyMs = Date.now() - t0;
   if (successfulResult) {
-    if (targetKey) {
-      (targetKey as any).lastLatencyMs = latencyMs;
-      targetKey.status = 'active';
-      targetKey.cooldownUntil = 0;
+    if (matchedPoolKey) {
+      (matchedPoolKey as any).lastLatencyMs = latencyMs;
+      matchedPoolKey.status = 'active';
+      matchedPoolKey.cooldownUntil = 0;
     }
     return res.json({
       success: true,
@@ -631,6 +654,10 @@ ${cleanEnglishText}`;
           if (process.env.GEMINI_API_KEY && !avail.includes(process.env.GEMINI_API_KEY.trim())) {
             avail.unshift(process.env.GEMINI_API_KEY.trim());
           }
+          const dbGemini = db.getApiKeys().filter(k => k.isActive && k.provider === 'gemini' && k.apiKey?.trim().length > 8);
+          dbGemini.forEach(k => {
+            if (!avail.includes(k.apiKey.trim())) avail.push(k.apiKey.trim());
+          });
           rawKeys.push(...avail);
         }
 
