@@ -50,7 +50,7 @@ export const ChunkListSidebar: React.FC<ChunkListSidebarProps> = ({
   });
 
   return (
-    <aside className="no-print w-full md:w-80 lg:w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-[calc(100vh-8rem)] sticky top-32 overflow-hidden">
+    <aside className="no-print w-full md:w-80 lg:w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-full md:h-[calc(100vh-8rem)] overflow-hidden">
       
       {/* Search & Filter Header */}
       <div className="p-3 border-b border-slate-800 space-y-2.5 bg-slate-900/90">

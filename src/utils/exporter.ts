@@ -44,6 +44,106 @@ export function sanitizeTranslatedHtml(html: string): string {
     .trim();
 }
 
+/**
+ * Converts formatted book HTML to clean plain text for easy manual editing.
+ * Strips HTML markup while preserving paragraph breaks, headings, and quotes.
+ */
+export function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  let clean = html;
+
+  // Preserve image slots
+  clean = clean.replace(/<div[^>]*class="[^"]*book-illustration-wrap[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, '\n[[تصویر کتاب]]\n');
+  clean = clean.replace(/<img[^>]*>/gi, '\n[[تصویر کتاب]]\n');
+
+  // Replace block closures with double newlines
+  clean = clean.replace(/<\/(p|h1|h2|h3|h4|blockquote|div)>/gi, '\n\n');
+  clean = clean.replace(/<br\s*[\/]?>/gi, '\n');
+
+  // Strip all other HTML tags
+  clean = clean.replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  clean = clean
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&zwnj;/g, '\u200c')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // Normalize excessive newlines (maximum 2 consecutive newlines)
+  clean = clean.replace(/\n{3,}/g, '\n\n').trim();
+  return clean;
+}
+
+/**
+ * Converts manually edited plain text back into standard publication-grade book HTML.
+ * Formats paragraphs, detects headings, blockquotes, and restores preserved images.
+ */
+export function plainTextToHtml(plainText: string, originalHtml?: string): string {
+  if (!plainText || !plainText.trim()) return '';
+
+  // Extract any original high-res image blocks from originalHtml to prevent losing images
+  const originalImages: string[] = [];
+  if (originalHtml) {
+    const imgMatches = originalHtml.match(/<div[^>]*class="[^"]*book-illustration-wrap[^"]*"[^>]*>[\s\S]*?<\/div>|<img[^>]*src=["']data:[^"']+["'][^>]*>/gi);
+    if (imgMatches) {
+      originalImages.push(...imgMatches);
+    }
+  }
+
+  const blocks = plainText
+    .split(/\n\s*\n/)
+    .map(b => b.trim())
+    .filter(Boolean);
+
+  let imageIndex = 0;
+  const htmlParts: string[] = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    // Check if block represents an image slot
+    if (block.includes('[[تصویر کتاب]]') || block.includes('[[IMAGE_PRESERVED_SLOT_')) {
+      if (imageIndex < originalImages.length) {
+        htmlParts.push(originalImages[imageIndex]);
+        imageIndex++;
+      }
+      continue;
+    }
+
+    // Markdown-style Heading 1 or first block if it's very short and looks like a chapter header
+    if (block.startsWith('# ')) {
+      const headingText = block.replace(/^#\s*/, '').trim();
+      htmlParts.push(`<h1 style="color: #1a365d; font-size: 24pt; margin-bottom: 20px; text-align: center;">${headingText}</h1>`);
+    } else if (block.startsWith('## ')) {
+      const headingText = block.replace(/^##\s*/, '').trim();
+      htmlParts.push(`<h2 style="color: #2b6cb0; font-size: 18pt; margin-top: 25px; margin-bottom: 12px;">${headingText}</h2>`);
+    } else if (block.startsWith('### ')) {
+      const headingText = block.replace(/^###\s*/, '').trim();
+      htmlParts.push(`<h3 style="color: #2c5282; font-size: 14pt; margin-top: 15px; margin-bottom: 8px;">${headingText}</h3>`);
+    } else if (block.startsWith('> ') || block.startsWith('«')) {
+      const quoteText = block.replace(/^>\s*/, '').trim();
+      htmlParts.push(`<blockquote style="border-right: 4px solid #3182ce; padding: 10px 18px; margin: 15px 0; background: #f7fafc; color: #4a5568; font-style: italic;">${quoteText}</blockquote>`);
+    } else {
+      // Standard publication body paragraph
+      // Replace single line breaks with <br/> inside paragraphs
+      const pContent = block.replace(/\n/g, '<br/>');
+      htmlParts.push(`<p style="line-height: 1.9; font-size: 12pt; text-align: justify; margin-bottom: 14px;">${pContent}</p>`);
+    }
+  }
+
+  // If there are remaining images not consumed, append them cleanly
+  while (imageIndex < originalImages.length) {
+    htmlParts.push(originalImages[imageIndex]);
+    imageIndex++;
+  }
+
+  return htmlParts.join('\n');
+}
+
 export interface GroupedChapter {
   chapterKey: string;
   title: string;

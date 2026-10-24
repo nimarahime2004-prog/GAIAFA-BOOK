@@ -89,8 +89,12 @@ export default function App() {
   // Active translation chunk in workspace
   const [activeChunkId, setActiveChunkId] = useState<string>('');
   const [isBatchTranslating, setIsBatchTranslating] = useState(false);
+  const [isStoppingBatch, setIsStoppingBatch] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, secondsToNextCall: 0 });
   const isBatchCancelledRef = useRef(false);
+
+  // Mobile Workspace active tab: 'editor' (translation views) vs 'chunks' (list of chapters/chunks)
+  const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<'editor' | 'chunks'>('editor');
 
   // Active project helper with guaranteed arrays
   const rawProject = books.find((b) => b.id === activeBookId) || books[0];
@@ -542,7 +546,7 @@ export default function App() {
     }
   };
 
-  // Batch translate inside workspace
+  // Batch translate inside workspace with graceful per-chunk stop
   const handleBatchTranslate = async () => {
     const pending = project.chunks.filter((c) => c.status !== 'completed');
     if (pending.length === 0) {
@@ -551,6 +555,7 @@ export default function App() {
     }
 
     setIsBatchTranslating(true);
+    setIsStoppingBatch(false);
     isBatchCancelledRef.current = false;
     setBatchProgress({ current: 0, total: pending.length, secondsToNextCall: 0 });
 
@@ -559,16 +564,26 @@ export default function App() {
       const c = pending[i];
       setActiveChunkId(c.id);
       setBatchProgress({ current: i + 1, total: pending.length, secondsToNextCall: 0 });
+      
+      // Translate current chunk completely
       await translateSingleChunk(c.id);
-      await new Promise((r) => setTimeout(r, 2000));
+
+      // If user clicked stop during this chunk, stop IMMEDIATELY without extra delay
+      if (isBatchCancelledRef.current) {
+        break;
+      }
+
+      // Safe pause between calls only when translation is continuing
+      await new Promise((r) => setTimeout(r, 1800));
     }
 
+    setIsStoppingBatch(false);
     setIsBatchTranslating(false);
   };
 
   const handleStopBatchTranslate = () => {
     isBatchCancelledRef.current = true;
-    setIsBatchTranslating(false);
+    setIsStoppingBatch(true);
   };
 
   const handleLoadSampleBook = (sample: SampleBook) => {
@@ -768,47 +783,82 @@ export default function App() {
           onOpenExportModal={() => setIsDesignModalOpen(true)}
         />
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <ChunkListSidebar
-            chunks={project.chunks}
-            activeChunkId={activeChunkId}
-            onSelectChunk={setActiveChunkId}
-            onTranslateChunk={translateSingleChunk}
-            isBatchTranslating={isBatchTranslating}
-            onDeleteChunk={handleDeleteChunk}
-          />
+        {/* Mobile Tab Switcher Bar for Book Editor */}
+        <div className="md:hidden no-print bg-slate-900 border-b border-slate-800 px-3 py-2 flex items-center justify-center gap-2 sticky top-16 z-30">
+          <div className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700 w-full max-w-sm text-xs font-semibold shadow-inner">
+            <button
+              onClick={() => setMobileWorkspaceTab('editor')}
+              className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                mobileWorkspaceTab === 'editor'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>📖 متن و ترجمه کتاب</span>
+            </button>
+            <button
+              onClick={() => setMobileWorkspaceTab('chunks')}
+              className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                mobileWorkspaceTab === 'chunks'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>📑 فهرست بخش‌ها ({project.chunks.length})</span>
+            </button>
+          </div>
+        </div>
 
-          <TranslationWorkspace
-            currentChunk={currentChunk}
-            project={project}
-            onUpdateChunkHtml={(chunkId: string, newHtml: string) => {
-              const updated = project.chunks.map((c) =>
-                c.id === chunkId ? { ...c, translatedHtml: newHtml } : c
-              );
-              handleUpdateProject({ ...project, chunks: updated });
-            }}
-            onDeleteChunk={handleDeleteChunk}
-            onTranslateCurrentChunk={() => currentChunk && translateSingleChunk(currentChunk.id)}
-            onStartBatchTranslate={handleBatchTranslate}
-            onStopBatchTranslate={handleStopBatchTranslate}
-            isBatchTranslating={isBatchTranslating}
-            batchProgress={batchProgress}
-            onStartCloudTranslation={() => handleStartDraftTranslation(project)}
-            onStopCloudTranslation={() => handleStopCloudTranslation(project.id)}
-            isCloudTranslating={isCloudTranslating}
-            onSelectPrevChunk={() => {
-              if (currentIndex > 0) setActiveChunkId(project.chunks[currentIndex - 1].id);
-            }}
-            onSelectNextChunk={() => {
-              if (currentIndex < project.chunks.length - 1)
-                setActiveChunkId(project.chunks[currentIndex + 1].id);
-            }}
-            hasPrevChunk={currentIndex > 0}
-            hasNextChunk={currentIndex < project.chunks.length - 1}
-            serverPool={serverPool}
-            onOpenServerPoolModal={() => setIsProvidersModalOpen(true)}
-            isAdmin={isUserAdmin}
-          />
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+          <div className={`${mobileWorkspaceTab === 'chunks' ? 'flex flex-1' : 'hidden'} md:flex md:flex-initial h-full`}>
+            <ChunkListSidebar
+              chunks={project.chunks}
+              activeChunkId={activeChunkId}
+              onSelectChunk={(id) => {
+                setActiveChunkId(id);
+                setMobileWorkspaceTab('editor');
+              }}
+              onTranslateChunk={translateSingleChunk}
+              isBatchTranslating={isBatchTranslating}
+              onDeleteChunk={handleDeleteChunk}
+            />
+          </div>
+
+          <div className={`${mobileWorkspaceTab === 'editor' ? 'flex flex-1' : 'hidden'} md:flex md:flex-1 h-full min-w-0`}>
+            <TranslationWorkspace
+              currentChunk={currentChunk}
+              project={project}
+              onUpdateChunkHtml={(chunkId: string, newHtml: string) => {
+                const updated = project.chunks.map((c) =>
+                  c.id === chunkId ? { ...c, translatedHtml: newHtml } : c
+                );
+                handleUpdateProject({ ...project, chunks: updated });
+              }}
+              onDeleteChunk={handleDeleteChunk}
+              onTranslateCurrentChunk={() => currentChunk && translateSingleChunk(currentChunk.id)}
+              onStartBatchTranslate={handleBatchTranslate}
+              onStopBatchTranslate={handleStopBatchTranslate}
+              isBatchTranslating={isBatchTranslating}
+              isStoppingBatch={isStoppingBatch}
+              batchProgress={batchProgress}
+              onStartCloudTranslation={() => handleStartDraftTranslation(project)}
+              onStopCloudTranslation={() => handleStopCloudTranslation(project.id)}
+              isCloudTranslating={isCloudTranslating}
+              onSelectPrevChunk={() => {
+                if (currentIndex > 0) setActiveChunkId(project.chunks[currentIndex - 1].id);
+              }}
+              onSelectNextChunk={() => {
+                if (currentIndex < project.chunks.length - 1)
+                  setActiveChunkId(project.chunks[currentIndex + 1].id);
+              }}
+              hasPrevChunk={currentIndex > 0}
+              hasNextChunk={currentIndex < project.chunks.length - 1}
+              serverPool={serverPool}
+              onOpenServerPoolModal={() => setIsProvidersModalOpen(true)}
+              isAdmin={isUserAdmin}
+              onOpenMobileChunks={() => setMobileWorkspaceTab('chunks')}
+            />
+          </div>
         </div>
       </div>
 
