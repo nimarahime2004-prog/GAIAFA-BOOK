@@ -116,6 +116,11 @@ export interface SystemSettings {
       merchantId: string;
       isSandbox: boolean;
     };
+    zibal: {
+      enabled: boolean;
+      merchantId: string;
+      isSandbox: boolean;
+    };
     nextpay: {
       enabled: boolean;
       apiKey: string;
@@ -231,6 +236,11 @@ const DEFAULT_SETTINGS: SystemSettings = {
     zarinpal: {
       enabled: true,
       merchantId: '00000000-0000-0000-0000-000000000000',
+      isSandbox: true,
+    },
+    zibal: {
+      enabled: true,
+      merchantId: 'zibal',
       isSandbox: true,
     },
     nextpay: {
@@ -492,6 +502,14 @@ class Database {
           settings: {
             ...DEFAULT_SETTINGS,
             ...(parsed.settings || {}),
+            gateways: {
+              ...DEFAULT_SETTINGS.gateways,
+              ...(parsed.settings?.gateways || {}),
+              zibal: {
+                ...DEFAULT_SETTINGS.gateways.zibal,
+                ...(parsed.settings?.gateways?.zibal || {}),
+              },
+            },
             seo: {
               ...DEFAULT_SETTINGS.seo,
               ...(parsed.settings?.seo || {}),

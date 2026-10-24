@@ -763,7 +763,7 @@ export function setupSaasRoutes(app: express.Express) {
       userId: user.id,
       amount: cleanAmount,
       type: 'deposit',
-      description: `افزایش موجودی آنلاین از درگاه ${gateway === 'zarinpal' ? 'زرین‌پال' : gateway === 'nextpay' ? 'نکست‌پی' : 'بانکی'}`,
+      description: `افزایش موجودی آنلاین از درگاه ${gateway === 'zibal' ? 'زیبال' : gateway === 'zarinpal' ? 'زرین‌پال' : gateway === 'nextpay' ? 'نکست‌پی' : gateway === 'idpay' ? 'آیدی‌پی' : 'بانکی'}`,
       gateway: gateway as any,
       status: 'pending',
       trackingCode,

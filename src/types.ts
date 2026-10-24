@@ -72,6 +72,11 @@ export interface SystemSettings {
       merchantId: string;
       isSandbox: boolean;
     };
+    zibal: {
+      enabled: boolean;
+      merchantId: string;
+      isSandbox: boolean;
+    };
     nextpay: {
       enabled: boolean;
       apiKey: string;

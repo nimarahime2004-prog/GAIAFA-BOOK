@@ -579,7 +579,7 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
     if (fullBook.chunks && fullBook.chunks.length > 0) {
       chaptersHtml = fullBook.chunks.map((ch: any, idx: number) => `
         <div class="chapter">
-          <h2>بخش ${idx + 1}: ${ch.title || `فصل ${idx + 1}`}</h2>
+          <h2>${ch.title ? ch.title : `فصل ${idx + 1}`}</h2>
           <div class="chapter-content">
             ${ch.translatedHtml || ch.translatedText?.replace(/\n/g, '<br/>') || ''}
           </div>
@@ -609,8 +609,7 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         <h1>${title}</h1>
         <div class="meta">
           ${fullBook.originalTitle ? `<span>عنوان زبان اصلی: ${fullBook.originalTitle} | </span>` : ''}
-          ${fullBook.author ? `<span>نویسنده: ${fullBook.author} | </span>` : ''}
-          <span>تاریخ: ${new Date().toLocaleDateString('fa-IR')}</span>
+          ${fullBook.author ? `<span>نویسنده: ${fullBook.author}</span>` : ''}
         </div>
         <hr/>
         ${chaptersHtml}
@@ -999,12 +998,12 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
       </header>
 
       {/* Tabs Navigation */}
-      <div className="bg-slate-900/90 border-b border-slate-800 backdrop-blur-sm sticky top-20 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs font-semibold">
+      <div className="bg-slate-900/90 border-b border-slate-800 backdrop-blur-sm sticky top-16 sm:top-20 z-30">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
+          <div className="flex overflow-x-auto pb-1 sm:pb-0 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs font-semibold scrollbar-none">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`p-2.5 rounded-xl transition-all flex items-center justify-center gap-2 border ${
+              className={`p-2.5 rounded-xl transition-all flex items-center justify-center gap-2 border shrink-0 min-w-[130px] sm:min-w-0 ${
                 activeTab === 'overview'
                   ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-md shadow-amber-500/20'
                   : 'bg-slate-950/60 text-slate-300 border-slate-800/80 hover:bg-slate-800 hover:text-white'
@@ -2826,6 +2825,88 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                     />
                     <label htmlFor="zp_sandbox" className="text-xs text-slate-300">
                       حالت آزمایشی (Sandbox) فعال باشد
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zibal */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-amber-500" />
+                    <h4 className="font-bold text-sm text-white">درگاه زیبال (Zibal)</h4>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.gateways.zibal?.enabled ?? false}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          gateways: {
+                            ...settings.gateways,
+                            zibal: {
+                              enabled: e.target.checked,
+                              merchantId: settings.gateways.zibal?.merchantId || 'zibal',
+                              isSandbox: settings.gateways.zibal?.isSandbox ?? true,
+                            },
+                          },
+                        })
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">مرچنت کد زیبال (Merchant ID):</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={settings.gateways.zibal?.merchantId || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          gateways: {
+                            ...settings.gateways,
+                            zibal: {
+                              enabled: settings.gateways.zibal?.enabled ?? false,
+                              merchantId: e.target.value,
+                              isSandbox: settings.gateways.zibal?.isSandbox ?? true,
+                            },
+                          },
+                        })
+                      }
+                      placeholder="zibal (یا مرچنت اختصاصی)"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="zibal_sandbox"
+                      checked={settings.gateways.zibal?.isSandbox ?? true}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          gateways: {
+                            ...settings.gateways,
+                            zibal: {
+                              enabled: settings.gateways.zibal?.enabled ?? false,
+                              merchantId: settings.gateways.zibal?.merchantId || 'zibal',
+                              isSandbox: e.target.checked,
+                            },
+                          },
+                        })
+                      }
+                      className="rounded accent-amber-500"
+                    />
+                    <label htmlFor="zibal_sandbox" className="text-xs text-slate-300">
+                      حالت آزمایشی زیبال (Sandbox) فعال باشد
                     </label>
                   </div>
                 </div>

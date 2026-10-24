@@ -112,16 +112,6 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             </select>
           </div>
 
-          {/* Token Calculator Button */}
-          <button
-            onClick={onOpenTokenModal}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-750 text-slate-200 border border-slate-700 hover:border-emerald-500/50 transition"
-            title="مشاهده میزان توکن مصرفی کل کتاب و سهمیه مورد نیاز"
-          >
-            <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-            <span>محاسبه توکن</span>
-          </button>
-
           {/* Glossary Manager Trigger */}
           <button
             onClick={onOpenGlossaryModal}

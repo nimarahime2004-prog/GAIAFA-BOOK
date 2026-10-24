@@ -13,7 +13,8 @@ import {
   Image as ImageIcon,
   FileCode,
   CheckCircle2,
-  RotateCw
+  RotateCw,
+  AlertCircle
 } from 'lucide-react';
 import { BookProject, ToneId, BookChunk } from '../types.ts';
 import { TONE_DEFINITIONS, DEFAULT_GLOSSARIES } from '../constants/tones.ts';
@@ -231,10 +232,9 @@ export const NewBookModal: React.FC<NewBookModalProps> = ({
       return;
     }
 
-    if (startCloud && !hasEnoughBalance && totalTranslationCost > 0) {
-      if (confirm(`موجودی کیف پول شما کافی نیست (کسری: ${(totalTranslationCost - walletBalance).toLocaleString('fa-IR')} تومان). آیا مایل به شارژ کیف پول هستید؟`)) {
-        if (onOpenWallet) onOpenWallet();
-      }
+    if (!hasEnoughBalance && totalTranslationCost > 0) {
+      alert(`موجودی کیف پول شما برای این کتاب کافی نیست. مبلغ کسری: ${(totalTranslationCost - walletBalance).toLocaleString('fa-IR')} تومان است. لطفاً ابتدا کیف پول خود را شارژ نمایید تا بتوانید وارد ویرایشگر شوید.`);
+      if (onOpenWallet) onOpenWallet();
       return;
     }
 
@@ -534,15 +534,28 @@ export const NewBookModal: React.FC<NewBookModalProps> = ({
               >
                 انصراف
               </button>
-              <button
-                type="button"
-                onClick={() => handleExecute(false)}
-                disabled={isProcessingFile}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20 disabled:opacity-50"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>ایجاد کتاب و ورود به ویرایشگر</span>
-              </button>
+              {!hasEnoughBalance && totalTranslationCost > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenWallet) onOpenWallet();
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition flex items-center gap-1.5 shadow-lg shadow-rose-500/20"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>شارژ کیف پول برای ورود (کسری: {(totalTranslationCost - walletBalance).toLocaleString('fa-IR')} ت)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleExecute(false)}
+                  disabled={isProcessingFile}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>ایجاد کتاب و ورود به ویرایشگر</span>
+                </button>
+              )}
             </div>
           </div>
 

@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 پردازش ابری
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-400 hidden sm:block">
               ویرایش ساختاریافته، واژه‌نامه یکپارچه و خروجی Word و PDF
             </p>
           </div>
@@ -113,21 +113,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               {booksCount}
             </span>
           </button>
-
-          {/* AI Providers Manager Button - Visible ONLY for Admin */}
-          {isAdmin && (
-            <button
-              onClick={onOpenProvidersModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-              title="تنظیمات ارائه‌دهندگان: OpenRouter, OpenAI, GLM, Gemini, واسط"
-            >
-              <Server className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden lg:inline">ارائه‌دهنده:</span>
-              <span className="text-emerald-400 font-bold max-w-[90px] truncate">
-                {activeProviderName}
-              </span>
-            </button>
-          )}
 
           {/* Sample Books Dropdown */}
           <div className="relative">

@@ -18,7 +18,9 @@ import {
   Mail,
   UserCheck,
   Cpu,
-  LogIn
+  LogIn,
+  Menu,
+  X
 } from 'lucide-react';
 import { SystemSettings, HeaderFooterConfig } from '../types.ts';
 
@@ -45,6 +47,7 @@ export function LandingPage({
   const [calcWords, setCalcWords] = useState<number>(15000);
   const [calcTone, setCalcTone] = useState<'standard' | 'specialized'>('standard');
   const [openFaq, setOpenFaq] = useState<string | null>('faq1');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Rate is strictly derived from the admin's configured costPerWord
   const unitPrice = costPerWord;
@@ -141,29 +144,29 @@ export function LandingPage({
       )}
 
       {/* Main Navbar */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             {seoConfig?.logoUrl ? (
               <img
                 src={seoConfig.logoUrl}
                 alt="Logo"
-                className="w-11 h-11 rounded-2xl object-contain border border-amber-500/20 shadow-md shadow-amber-500/20 bg-slate-900"
+                className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl object-contain border border-amber-500/20 shadow-md shadow-amber-500/20 bg-slate-900 shrink-0"
               />
             ) : (
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20">
-                <BookOpen className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20 shrink-0">
+                <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             )}
-            <div>
-              <span className="text-xl font-bold bg-gradient-to-r from-white via-slate-100 to-amber-400 bg-clip-text text-transparent">
+            <div className="min-w-0">
+              <span className="text-sm sm:text-lg md:text-xl font-bold bg-gradient-to-r from-white via-slate-100 to-amber-400 bg-clip-text text-transparent truncate block max-w-[170px] xs:max-w-xs sm:max-w-none">
                 {seoConfig?.siteTitle || 'مترجم و ویراستار هوشمند کتاب'}
               </span>
-              <p className="text-[11px] text-slate-400">سامانه تجاری ترجمه کتاب و متون تخصصی با هوش مصنوعی</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate hidden xs:block">سامانه تجاری ترجمه کتاب و متون تخصصی با هوش مصنوعی</p>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-slate-300">
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-6 text-xs xl:text-sm text-slate-300">
             <a href="#features" className="hover:text-amber-400 transition-colors">امکانات پلتفرم</a>
             <a href="#calculator" className="hover:text-amber-400 transition-colors">ماشین‌حساب هزینه</a>
             <a href="#tones" className="hover:text-amber-400 transition-colors">لحن‌ها و ژانرها</a>
@@ -182,16 +185,75 @@ export function LandingPage({
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => onOpenAuth('login')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-md shadow-amber-500/20 transition-all transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-md shadow-amber-500/20 transition-all shrink-0"
             >
-              <LogIn className="w-4 h-4" />
-              ورود به سامانه / ثبت‌نام
+              <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">ورود به سامانه / ثبت‌نام</span>
+              <span className="sm:hidden">ورود / ثبت‌نام</span>
+            </button>
+
+            {/* Mobile Menu Hamburger */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700"
+              aria-label="منوی موبایل"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-slate-900 border-b border-slate-800 px-4 py-4 space-y-3 text-xs sm:text-sm animate-in slide-in-from-top-2">
+            <a
+              href="#features"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-200"
+            >
+              امکانات پلتفرم
+            </a>
+            <a
+              href="#calculator"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-200"
+            >
+              ماشین‌حساب هزینه و زمان
+            </a>
+            <a
+              href="#tones"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-200"
+            >
+              لحن‌ها و ژانرهای تخصصی
+            </a>
+            <a
+              href="#faq"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-200"
+            >
+              سوالات متداول
+            </a>
+            {customPages.filter((page) => page.showInHeader).map((page) => (
+              <button
+                key={page.id}
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onOpenCustomPage) onOpenCustomPage(page.slug);
+                  else window.location.assign(`/page/${page.slug}`);
+                }}
+                className="block w-full text-right py-2 px-3 rounded-lg hover:bg-slate-800 text-amber-400 font-medium"
+              >
+                {page.title}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}

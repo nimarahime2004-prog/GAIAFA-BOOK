@@ -171,23 +171,6 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
             </button>
           )}
 
-          {/* Active Failover Server Pool Button & API Edit Shortcut - Visible ONLY for Admin */}
-          {isAdmin && onOpenServerPoolModal && (
-            <button
-              onClick={onOpenServerPoolModal}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 transition shadow-sm"
-              title="مشاهده، تست و ویرایش تنظیمات و کلیدهای API سرورها"
-            >
-              <Server className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline text-[11px]">سوئیچ خودکار:</span>
-              <span className="text-emerald-400 font-bold font-mono text-[11px]">
-                {serverPool?.filter(s => s.isEnabled).length || 1} سرور
-              </span>
-              <span className="text-[10px] text-amber-400/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mr-0.5 font-bold">
-                ویرایش API
-              </span>
-            </button>
-          )}
 
           {/* Cloud Server Background Translation: Start or Stop (with fair refund) */}
           {isCloudTranslating ? (
