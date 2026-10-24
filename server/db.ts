@@ -263,10 +263,10 @@ const DEFAULT_SETTINGS: SystemSettings = {
   },
   sms: {
     provider: 'melipayamak',
-    authMethod: 'credentials',
+    authMethod: 'apikey',
     username: '',
     password: '',
-    apiKey: '',
+    apiKey: 'e0d8fbb9-fbf5-4082-b02f-80b6fb478407',
     senderNumber: '50004000',
     bodyId: '',
     patternCode: '',
@@ -521,6 +521,11 @@ class Database {
             seo: {
               ...DEFAULT_SETTINGS.seo,
               ...(parsed.settings?.seo || {}),
+            },
+            sms: {
+              ...DEFAULT_SETTINGS.sms,
+              ...(parsed.settings?.sms || {}),
+              apiKey: parsed.settings?.sms?.apiKey || 'e0d8fbb9-fbf5-4082-b02f-80b6fb478407',
             },
             headerFooter: {
               ...DEFAULT_SETTINGS.headerFooter,

@@ -4303,6 +4303,99 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                         onClick={() =>
                           setPageForm({
                             ...pageForm,
+                            title: 'صفحه اصلی و لندینگ پیج سایت',
+                            slug: 'home',
+                            showInHeader: true,
+                            showInFooter: true,
+                            htmlContent: `<div style="max-width: 1000px; margin: 0 auto; padding: 50px 20px; font-family: 'Vazirmatn', sans-serif; text-align: center; color: #f8fafc;">
+  <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(2, 6, 23, 0.6)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 28px; padding: 48px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+    <div style="display: inline-block; background: #f59e0b; color: #020617; font-weight: 900; font-size: 13px; padding: 6px 16px; border-radius: 20px; margin-bottom: 20px;">
+      نسخه سازمانی ترجمه هوشمند کتاب
+    </div>
+    <h1 style="font-size: 36px; font-weight: 900; color: #ffffff; margin-bottom: 16px; line-height: 1.4;">
+      ترجمه و ویراستاری تخصصی کتاب با قدرتمندترین هوش مصنوعی جهان
+    </h1>
+    <p style="font-size: 17px; color: #94a3b8; max-width: 720px; margin: 0 auto 32px; line-height: 1.9;">
+      بارگذاری آسان PDF، EPUB و Word، شمارش آنی کلمات و پردازش پیوسته ابری در پس‌زمینه بدون نیاز به باز ماندن مرورگر.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+      <a href="/?page=login" style="background: #f59e0b; color: #020617; font-weight: 800; font-size: 15px; padding: 14px 32px; border-radius: 16px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+        ورود به سامانه و ثبت سفارش
+      </a>
+      <a href="/page/pricing" style="background: #1e293b; color: #f8fafc; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 16px; text-decoration: none; border: 1px solid #334155;">
+        مشاهده تعرفه کلمه‌ای
+      </a>
+    </div>
+  </div>
+</div>`,
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition"
+                      >
+                        قالب صفحه اصلی (Home / Landing)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPageForm({
+                            ...pageForm,
+                            title: 'ورود و احراز هویت اختصاصی',
+                            slug: 'login',
+                            showInHeader: true,
+                            showInFooter: false,
+                            htmlContent: `<div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; font-family: 'Vazirmatn', sans-serif; text-align: center; color: #f8fafc;">
+  <div style="background: #0f172a; border: 1px solid #334155; border-radius: 24px; padding: 36px 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+    <h1 style="color: #f59e0b; font-size: 24px; font-weight: 800; margin-bottom: 12px;">ورود به سامانه ترجمه کتاب</h1>
+    <p style="font-size: 14px; color: #94a3b8; margin-bottom: 28px;">جهت ورود سریع به پنل کاربری و مشاهده کتاب‌های ترجمه‌شده کلیک نمایید:</p>
+    <a href="/?page=login" style="display: block; background: #f59e0b; color: #020617; font-weight: 800; font-size: 15px; padding: 14px; border-radius: 14px; text-decoration: none;">
+      انتقال به فرم ورود امن با پیامک و کلمه عبور
+    </a>
+  </div>
+</div>`,
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+                      >
+                        قالب صفحه ورود (Login)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPageForm({
+                            ...pageForm,
+                            title: 'قوانین، مقررات و حریم خصوصی',
+                            slug: 'terms',
+                            showInHeader: false,
+                            showInFooter: true,
+                            htmlContent: `<div style="max-width: 900px; margin: 0 auto; padding: 40px 20px; font-family: 'Vazirmatn', sans-serif; line-height: 2; color: #f8fafc;">
+  <h1 style="color: #f59e0b; font-size: 26px; font-weight: 800; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 24px;">قوانین و شرایط استفاده از خدمات</h1>
+  <div style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 24px; margin-bottom: 20px;">
+    <h3 style="color: #38bdf8; font-size: 16px; margin-top: 0;">۱. تعهدات و شفافیت مالی</h3>
+    <p style="font-size: 14px; color: #cbd5e1; text-align: justify;">محاسبه هزینه ترجمه منحصراً بر مبنای شمارش دقیق کلمات کتاب و نرخ مصوب سامانه انجام می‌پذیرد. در صورت لغو سفارش در حین ترجمه، مبالغ مربوط به بخش‌های پردازش‌نشده به کیف پول کاربر عودت داده می‌شود.</p>
+  </div>
+  <div style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 24px;">
+    <h3 style="color: #38bdf8; font-size: 16px; margin-top: 0;">۲. محرمانگی و مالکیت متون</h3>
+    <p style="font-size: 14px; color: #cbd5e1; text-align: justify;">تمامی فایل‌های بارگذاری‌شده و ترجمه‌های حاصل متعلق به کاربر بوده و در سرورهای امن به صورت ایزوله نگهداری می‌شوند.</p>
+  </div>
+</div>`,
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+                      >
+                        قالب قوانین و حریم خصوصی
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPageForm({
+                            ...pageForm,
+                            title: 'درباره سامانه ما',
+                            slug: 'about-us',
+                            showInHeader: true,
+                            showInFooter: true,
                             htmlContent: `<div style="max-width: 900px; margin: 0 auto; padding: 40px 20px; font-family: 'Vazirmatn', sans-serif; line-height: 2; color: #f8fafc;">
   <h1 style="color: #f59e0b; font-size: 28px; font-weight: 800; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 24px;">درباره سامانه ما</h1>
   <p style="font-size: 16px; margin-bottom: 20px; text-align: justify; color: #cbd5e1;">سامانه هوشمند ترجمه کتاب پیشرفته‌ترین پلتفرم برای تبدیل دقیق و تخصصی متون قطور با حفظ ساختار است.</p>
@@ -4327,6 +4420,10 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                         onClick={() =>
                           setPageForm({
                             ...pageForm,
+                            title: 'جدول تعرفه‌ها و بسته‌ها',
+                            slug: 'pricing',
+                            showInHeader: true,
+                            showInFooter: true,
                             htmlContent: `<div style="max-width: 900px; margin: 0 auto; padding: 40px 20px; font-family: 'Vazirmatn', sans-serif; line-height: 2; color: #f8fafc;">
   <h1 style="color: #f59e0b; font-size: 28px; font-weight: 800; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 24px;">جدول تعرفه‌ها و بسته‌های شارژ</h1>
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
@@ -4347,29 +4444,6 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                         className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
                       >
                         قالب جدول تعرفه‌ها
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPageForm({
-                            ...pageForm,
-                            htmlContent: `<div style="max-width: 900px; margin: 0 auto; padding: 40px 20px; font-family: 'Vazirmatn', sans-serif; line-height: 2; color: #f8fafc;">
-  <h1 style="color: #f59e0b; font-size: 28px; font-weight: 800; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 24px;">تماس با ما و پشتیبانی فنی</h1>
-  <div style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 30px;">
-    <p style="font-size: 15px; color: #e2e8f0;">تیم پشتیبانی به صورت ۲۴ ساعته در هفت روز هفته آماده پاسخگویی به شماست:</p>
-    <div style="margin-top: 20px; line-height: 2.2; font-size: 14px; color: #cbd5e1;">
-      <p>📞 تلفن پشتیبانی: ۰۲۱-۸۸۸۸۹۹۹۹</p>
-      <p>✉️ ایمیل پاسخگویی: support@booktranslator.ir</p>
-      <p>📍 نشانی: تهران، دانشگاه تهران، پارک علم و فناوری</p>
-    </div>
-  </div>
-</div>`,
-                          })
-                        }
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
-                      >
-                        قالب تماس با پشتیبانی
                       </button>
                     </div>
                   </div>

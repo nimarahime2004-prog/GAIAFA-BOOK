@@ -17,7 +17,11 @@ import {
   RefreshCw,
   LogOut,
   Sliders,
-  ChevronLeft
+  ChevronLeft,
+  BarChart3,
+  Table,
+  LayoutGrid,
+  Coins
 } from 'lucide-react';
 import { User, BookProject, TranslationJob } from '../types.ts';
 
@@ -55,22 +59,50 @@ export function UserDashboard({
   onRefresh,
 }: UserDashboardProps) {
   const [filter, setFilter] = useState<'all' | 'completed' | 'translating' | 'draft'>('all');
+  const [dashboardTab, setDashboardTab] = useState<'grid' | 'analytics'>('grid');
+
+  // Helper for per-book words and financial calculations
+  const getBookUsage = (b: BookProject) => {
+    const totalChunks = b.chunks?.length || 0;
+    const completedChunks = b.chunks?.filter((c) => c.status === 'completed').length || 0;
+    const totalWords = b.wordCount || b.chunks?.reduce((acc, c) => acc + (c.wordCount || 0), 0) || 0;
+    const completedWords = b.chunks?.filter((c) => c.status === 'completed').reduce((acc, c) => acc + (c.wordCount || 0), 0) || 0;
+
+    const isSpecialized = b.tone === 'academic' || b.tone === 'aerospace' || b.tone === 'mathematics';
+    const costPerWord = Math.round(45 * (isSpecialized ? 1.25 : 1.0));
+    const incurredCost = completedWords > 0
+      ? Math.round(completedWords * costPerWord)
+      : (b.estimatedCost || Math.round(totalWords * costPerWord));
+
+    const percent = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0;
+    const isCompleted = totalChunks > 0 && completedChunks === totalChunks;
+    const isTranslating = activeJobs.some((j) => j.bookId === b.id) || b.chunks?.some((c) => c.status === 'queued' || c.status === 'translating');
+
+    return {
+      totalChunks,
+      completedChunks,
+      totalWords,
+      completedWords,
+      incurredCost,
+      costPerWord,
+      percent,
+      isCompleted,
+      isTranslating,
+    };
+  };
 
   // Compute stats
   const totalBooks = books.length;
   let totalWordsTranslated = 0;
   let completedBooksCount = 0;
+  let totalUserSpentOnBooks = 0;
 
   books.forEach((b) => {
-    if (b.chunks) {
-      b.chunks.forEach((c) => {
-        if (c.status === 'completed') {
-          totalWordsTranslated += c.wordCount || 0;
-        }
-      });
-      if (b.chunks.every((c) => c.status === 'completed') && b.chunks.length > 0) {
-        completedBooksCount++;
-      }
+    const usage = getBookUsage(b);
+    totalWordsTranslated += usage.completedWords;
+    totalUserSpentOnBooks += usage.incurredCost;
+    if (usage.isCompleted) {
+      completedBooksCount++;
     }
   });
 
@@ -248,7 +280,7 @@ export function UserDashboard({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
             <div className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-blue-400" />
-              کلمات ترجمه‌شده
+              کلمات ترجمه‌شده شما
             </div>
             <div className="text-2xl font-black text-amber-400">{totalWordsTranslated.toLocaleString('fa-IR')}</div>
             <div className="text-[11px] text-slate-500 mt-1">کلمه با کیفیت ادبی و فصیح</div>
@@ -256,18 +288,18 @@ export function UserDashboard({
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
             <div className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">
-              <RefreshCw className="w-4 h-4 text-emerald-400" />
-              پردازش فعال در سرور
+              <Coins className="w-4 h-4 text-emerald-400" />
+              هزینه مصرفی کتاب‌ها
             </div>
-            <div className="text-2xl font-black text-white">{activeJobs.length}</div>
-            <div className="text-[11px] text-emerald-400/90 mt-1">پیوسته در پس‌زمینه ابری</div>
+            <div className="text-2xl font-black text-emerald-400">{totalUserSpentOnBooks.toLocaleString('fa-IR')} <span className="text-xs font-normal text-slate-400">تومان</span></div>
+            <div className="text-[11px] text-emerald-400/80 mt-1">کسر شده متناسب با کلمات</div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
             <div>
               <div className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">
                 <Wallet className="w-4 h-4 text-amber-400" />
-                موجودی کیف پول
+                مانده کیف پول
               </div>
               <div className="text-2xl font-black text-white">{user.walletBalance.toLocaleString('fa-IR')} <span className="text-xs font-normal text-slate-400">تومان</span></div>
             </div>
@@ -281,36 +313,64 @@ export function UserDashboard({
           </div>
         </div>
 
-        {/* Books Section Header */}
+        {/* Section Header & Tab Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-              <span>کتابخانه و پروژه‌های من</span>
+              <span>{dashboardTab === 'grid' ? 'کتابخانه و پروژه‌های من' : 'گزارش شفاف آمار و هزینه‌ها به تفکیک کتاب'}</span>
               <span className="text-xs text-slate-400 font-normal">({filteredBooks.length} کتاب)</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">مشاهده وضعیت ترجمه، ویرایش متن، یا دانلود با خروجی‌های Word و PDF</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {dashboardTab === 'grid'
+                ? 'مشاهده وضعیت ترجمه، ویرایش متن، یا دانلود با خروجی‌های Word و PDF'
+                : 'مشاهده دقیق تعداد کلمات ترجمه‌شده هر کتاب و هزینه کسر شده از کیف پول'}
+            </p>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'all' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`}
-            >
-              همه ({books.length})
-            </button>
-            <button
-              onClick={() => setFilter('completed')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'completed' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`}
-            >
-              پایان‌یافته ({completedBooksCount})
-            </button>
-            <button
-              onClick={() => setFilter('translating')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'translating' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`}
-            >
-              در حال ترجمه
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+              <button
+                onClick={() => setDashboardTab('grid')}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                  dashboardTab === 'grid' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>نمای کارتی</span>
+              </button>
+              <button
+                onClick={() => setDashboardTab('analytics')}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                  dashboardTab === 'analytics' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>گزارش هزینه‌ها</span>
+              </button>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-2.5 py-1.5 rounded-lg transition-all ${filter === 'all' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+              >
+                همه ({books.length})
+              </button>
+              <button
+                onClick={() => setFilter('completed')}
+                className={`px-2.5 py-1.5 rounded-lg transition-all ${filter === 'completed' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+              >
+                پایان‌یافته ({completedBooksCount})
+              </button>
+              <button
+                onClick={() => setFilter('translating')}
+                className={`px-2.5 py-1.5 rounded-lg transition-all ${filter === 'translating' ? 'bg-slate-800 text-amber-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+              >
+                در حال ترجمه
+              </button>
+            </div>
           </div>
         </div>
 
@@ -332,15 +392,136 @@ export function UserDashboard({
               <span>بارگذاری و شروع اولین کتاب</span>
             </button>
           </div>
+        ) : dashboardTab === 'analytics' ? (
+          /* TAB 2: DETAILED COST & WORD LEDGER TABLE */
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+            <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-base text-white">تراز تفکیکی کلمات ترجمه‌شده و مبالغ کسر شده هر کتاب</h3>
+              </div>
+              <span className="text-xs text-slate-400">
+                مجموع کلمات پردازش شده: <b className="text-amber-400 font-mono">{totalWordsTranslated.toLocaleString('fa-IR')}</b> | مجموع هزینه: <b className="text-emerald-400 font-mono">{totalUserSpentOnBooks.toLocaleString('fa-IR')} تومان</b>
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/70 text-slate-400 font-semibold">
+                    <th className="py-3 px-4">ردیف</th>
+                    <th className="py-3 px-4">عنوان کتاب</th>
+                    <th className="py-3 px-4">لحن و رشته</th>
+                    <th className="py-3 px-4">کلمات ترجمه‌شده</th>
+                    <th className="py-3 px-4">کل کلمات</th>
+                    <th className="py-3 px-4">پیشرفت</th>
+                    <th className="py-3 px-4">هزینه هر کلمه</th>
+                    <th className="py-3 px-4">کل هزینه ایجاد شده</th>
+                    <th className="py-3 px-4">وضعیت تسویه</th>
+                    <th className="py-3 px-4 text-center">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredBooks.map((b, idx) => {
+                    const usage = getBookUsage(b);
+                    return (
+                      <tr key={b.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-3.5 px-4 font-mono text-slate-500">{idx + 1}</td>
+                        <td className="py-3.5 px-4">
+                          <strong className="text-white font-bold block text-sm line-clamp-1">{b.title}</strong>
+                          <span className="text-[11px] text-slate-400 font-serif line-clamp-1" dir="ltr">{b.originalTitle || b.title}</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 text-amber-300 border border-slate-700">
+                            {getToneLabel(b.tone)}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold font-mono text-amber-400 text-sm">
+                            {usage.completedWords.toLocaleString('fa-IR')}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-400">
+                          {usage.totalWords.toLocaleString('fa-IR')}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] text-slate-300">{usage.percent}٪</span>
+                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${usage.isCompleted ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                                style={{ width: `${usage.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-400">
+                          {usage.costPerWord} تومان
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold font-mono text-emerald-400 text-sm">
+                            {usage.incurredCost.toLocaleString('fa-IR')} تومان
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {usage.isCompleted ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+                              <CheckCircle2 className="w-3 h-3" />
+                              تسویه شده کامل
+                            </span>
+                          ) : usage.isTranslating ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold animate-pulse">
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              در حال کسر پویا
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                              پیش‌نویس اولیه
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => onSelectBook(b)}
+                              className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              <span>مشاهده</span>
+                            </button>
+                            <button
+                              onClick={() => onExportDocx(b)}
+                              title="خروجی Word"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => onExportPdf(b)}
+                              title="خروجی PDF"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
-          /* Books Cards Grid */
+          /* TAB 1: BOOKS CARDS GRID */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBooks.map((book) => {
-              const totalChunks = book.chunks?.length || 0;
-              const completedChunks = book.chunks?.filter((c) => c.status === 'completed').length || 0;
-              const isAllDone = totalChunks > 0 && completedChunks === totalChunks;
-              const isTranslating = activeJobs.some((j) => j.bookId === book.id) || book.chunks?.some((c) => c.status === 'translating' || c.status === 'queued');
-              const percent = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0;
+              const usage = getBookUsage(book);
+              const totalChunks = usage.totalChunks;
+              const completedChunks = usage.completedChunks;
+              const isAllDone = usage.isCompleted;
+              const isTranslating = usage.isTranslating;
+              const percent = usage.percent;
 
               return (
                 <div
@@ -378,25 +559,32 @@ export function UserDashboard({
                       {book.originalTitle || book.title}
                     </p>
 
-                    {/* Book Metadata */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 mb-4">
-                      <div>
-                        <span className="text-slate-500 block">نویسنده:</span>
-                        <span className="text-slate-300 font-medium truncate block">{book.author || 'نامشخص'}</span>
+                    {/* Book Metadata & Cost Transparency */}
+                    <div className="space-y-2 text-[11px] bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 mb-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-slate-500 block">نویسنده:</span>
+                          <span className="text-slate-300 font-medium truncate block">{book.author || 'نامشخص'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">بخش‌های کتاب:</span>
+                          <span className="text-slate-300 font-medium block">{completedChunks} از {totalChunks} فصل</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-slate-500 block">تعداد کلمات:</span>
-                        <span className="text-amber-400 font-bold block">
-                          {(book.chunks?.reduce((acc, c) => acc + (c.wordCount || 0), 0) || 0).toLocaleString('fa-IR')} کلمه
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">تعداد بخش‌ها:</span>
-                        <span className="text-slate-300 font-medium block">{completedChunks} از {totalChunks} فصل</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">تصاویر کتاب:</span>
-                        <span className="text-slate-300 font-medium block">{book.totalImagesCount || 0} تصویر</span>
+
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-slate-500 block">کلمات ترجمه‌شده این کتاب:</span>
+                          <span className="text-amber-400 font-bold block text-xs">
+                            {usage.completedWords.toLocaleString('fa-IR')} <span className="text-[10px] text-slate-500 font-normal">از {usage.totalWords.toLocaleString('fa-IR')} کلمه</span>
+                          </span>
+                        </div>
+                        <div className="text-left">
+                          <span className="text-slate-500 block">هزینه ایجاد شده:</span>
+                          <span className="text-emerald-400 font-bold block text-xs font-mono">
+                            {usage.incurredCost.toLocaleString('fa-IR')} تومان
+                          </span>
+                        </div>
                       </div>
                     </div>
 

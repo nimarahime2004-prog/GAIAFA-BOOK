@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
+import { DedicatedAuthPage } from './components/DedicatedAuthPage.tsx';
 import { UserDashboard } from './components/UserDashboard.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
 import { WalletModal } from './components/WalletModal.tsx';
@@ -54,6 +55,34 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'otp'>('login');
+  const [activeAuthPage, setActiveAuthPage] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('page') === 'login' || params.get('auth') === 'login' || params.get('auth') === '1';
+    }
+    return false;
+  });
+
+  const [paymentNotice, setPaymentNotice] = useState<{ type: 'success' | 'canceled'; message: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('payment');
+      const amount = params.get('amount');
+      const tracking = params.get('trackingCode');
+      if (p === 'success') {
+        return {
+          type: 'success',
+          message: `پرداخت با موفقیت انجام شد و مبلغ ${Number(amount || 0).toLocaleString('fa-IR')} تومان به موجودی کیف پول افزوده گردید. کد پیگیری شاپرک: ${tracking || 'ثبت شده'}`,
+        };
+      } else if (p === 'canceled') {
+        return {
+          type: 'canceled',
+          message: 'عملیات پرداخت در درگاه بانکی توسط کاربر لغو گردید.',
+        };
+      }
+    }
+    return null;
+  });
 
   // Navigation View: 'dashboard' (User Panel), 'workspace' (Reader/Editor), 'admin' (Admin Panel)
   const [currentView, setCurrentView] = useState<'dashboard' | 'workspace' | 'admin'>('dashboard');
@@ -664,12 +693,29 @@ export default function App() {
   // STRICT LOGIN BARRIER: If user is not authenticated
   // ========================================================
   if (!currentUser) {
+    if (activeAuthPage) {
+      return (
+        <DedicatedAuthPage
+          onAuthSuccess={(user, token) => {
+            handleAuthSuccess(user, token);
+            setActiveAuthPage(false);
+            window.history.pushState({}, '', '/');
+          }}
+          onBackToHome={() => {
+            setActiveAuthPage(false);
+            window.history.pushState({}, '', '/');
+          }}
+          seoConfig={seoConfig}
+        />
+      );
+    }
+
     return (
       <>
         <LandingPage
           onOpenAuth={(tab) => {
-            setAuthModalTab(tab || 'login');
-            setIsAuthModalOpen(true);
+            setActiveAuthPage(true);
+            window.history.pushState({}, '', '/?page=login');
           }}
           cmsConfig={cmsConfig}
           seoConfig={seoConfig}
@@ -707,6 +753,25 @@ export default function App() {
   if (currentView === 'dashboard') {
     return (
       <>
+        {paymentNotice && (
+          <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40">
+            <div className={`max-w-5xl mx-auto p-3.5 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+              paymentNotice.type === 'success'
+                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/15 border border-rose-500/30 text-rose-300'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span>{paymentNotice.message}</span>
+              </div>
+              <button
+                onClick={() => setPaymentNotice(null)}
+                className="px-2 py-1 rounded-lg bg-slate-950/60 hover:bg-slate-950 text-slate-300 text-[11px]"
+              >
+                بستن پیام
+              </button>
+            </div>
+          </div>
+        )}
         <UserDashboard
           user={currentUser}
           books={books}

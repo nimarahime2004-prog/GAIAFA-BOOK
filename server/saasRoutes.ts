@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { db, User, BookRecord, TranslationJob, TransactionRecord, ApiKeyConfig } from './db.ts';
 import { queueManager } from './queue.ts';
 import { GoogleGenAI } from '@google/genai';
+import { sendRealOtpSms } from './smsService.ts';
 
 // Helper to extract authenticated user from Authorization header
 export function getAuthUser(req: express.Request): User | null {
@@ -195,14 +196,14 @@ export function setupSaasRoutes(app: express.Express) {
     db.setOtp(cleanPhone, otpCode);
 
     const smsSettings = db.getSettings().sms;
-    console.log(`[SMS-Engine] Provider: ${smsSettings.provider} -> Sent OTP: ${otpCode} to ${cleanPhone}`);
+    const smsResult = await sendRealOtpSms(cleanPhone, otpCode, smsSettings);
 
-    // In preview/simulation environment or mock mode, we also return the code in response
-    // so testers can immediately use it without waiting for external SMS gateway routing.
     return res.json({
       success: true,
-      message: `کد تایید ۶ رقمی به شماره ${cleanPhone} ارسال شد.`,
-      previewCode: otpCode, // Helpful for instant testing & evaluation
+      message: smsResult.message || `کد تایید ۶ رقمی به شماره ${cleanPhone} ارسال شد.`,
+      previewCode: otpCode, // Provided for instant test validation
+      gatewaySuccess: smsResult.success,
+      gatewayRaw: smsResult.gatewayRaw,
       expiresInSeconds: 180,
     });
   });
@@ -808,6 +809,298 @@ export function setupSaasRoutes(app: express.Express) {
     });
   });
 
+  // Dedicated Bank / Shaparak Gateway Portal View
+  app.get(['/payment/gateway/:txId', '/api/payment/simulate-checkout'], (req, res) => {
+    const txId = (req.params.txId || req.query.txId) as string;
+    const transactions = db.getTransactions();
+    const tx = transactions.find(t => t.id === txId);
+
+    if (!tx) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html dir="rtl" lang="fa">
+        <head><meta charset="utf-8"><title>تراکنش یافت نشد</title></head>
+        <body style="font-family: Tahoma, sans-serif; text-align: center; padding: 50px; background: #0f172a; color: #fff;">
+          <h2>شناسه فاکتور نامعتبر است</h2>
+          <p>تراکنش مورد نظر در سیستم یافت نشد.</p>
+          <a href="/" style="color: #f59e0b; text-decoration: none;">بازگشت به سامانه</a>
+        </body>
+        </html>
+      `);
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="fa">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>درگاه پرداخت الکترونیک شاپرک | پرداخت امن</title>
+        <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+          .header {
+            background: #1e3a8a;
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+          }
+          .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            font-size: 16px;
+          }
+          .security-seal {
+            background: rgba(255,255,255,0.15);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 30px auto;
+            background: #ffffff;
+            border-radius: 24px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+          }
+          .invoice-card {
+            background: #f8fafc;
+            border-bottom: 2px dashed #cbd5e1;
+            padding: 24px;
+          }
+          .invoice-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #475569;
+          }
+          .invoice-row:last-child { margin-bottom: 0; }
+          .amount-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: #059669;
+          }
+          .form-body {
+            padding: 28px 24px;
+          }
+          .form-group {
+            margin-bottom: 20px;
+          }
+          .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #334155;
+          }
+          .input-control {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            font-size: 15px;
+            font-family: inherit;
+            direction: ltr;
+            text-align: center;
+            outline: none;
+            transition: all 0.2s;
+          }
+          .input-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+          }
+          .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+          }
+          .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #fff;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s;
+          }
+          .btn-submit:hover {
+            filter: brightness(1.08);
+          }
+          .btn-cancel {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+          }
+          .btn-cancel:hover { color: #dc2626; }
+          .timer-box {
+            font-size: 12px;
+            color: #e11d48;
+            font-weight: 700;
+            background: #ffe4e6;
+            padding: 4px 10px;
+            border-radius: 8px;
+          }
+          .footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <header class="header">
+          <div class="header-brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>درگاه پرداخت اینترنتی شاپرک</span>
+          </div>
+          <div class="security-seal">
+            <span>اتصال امن SSL</span>
+            <span class="timer-box" id="timeRemaining">09:59</span>
+          </div>
+        </header>
+
+        <div class="container">
+          <div class="invoice-card">
+            <div class="invoice-row">
+              <span>نام پذیرنده:</span>
+              <strong style="color: #0f172a;">سامانه هوشمند مترجم و ویراستار کتاب</strong>
+            </div>
+            <div class="invoice-row">
+              <span>کد پیگیری تراکنش:</span>
+              <span style="font-family: monospace; font-weight: bold;">${tx.trackingCode}</span>
+            </div>
+            <div class="invoice-row">
+              <span>مبلغ قابل پرداخت:</span>
+              <span class="amount-val">${tx.amount.toLocaleString('fa-IR')} تومان</span>
+            </div>
+            <div class="invoice-row" style="font-size: 11px; color: #94a3b8;">
+              <span>معادل ریالی:</span>
+              <span>${(tx.amount * 10).toLocaleString('fa-IR')} ریال</span>
+            </div>
+          </div>
+
+          <form action="/api/payment/gateway-complete" method="POST" class="form-body">
+            <input type="hidden" name="txId" value="${tx.id}" />
+
+            <div class="form-group">
+              <label>شماره کارت ۱۶ رقمی شتاب:</label>
+              <input type="text" name="cardNumber" class="input-control" placeholder="6037-9918-xxxx-xxxx" maxlength="19" value="6037-9918-4512-8820" required />
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label>کد امنیتی (CVV2):</label>
+                <input type="password" name="cvv2" class="input-control" placeholder="•••" maxlength="4" value="482" required />
+              </div>
+
+              <div class="form-group">
+                <label>تاریخ انقضا (ماه / سال):</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" placeholder="ماه" class="input-control" maxlength="2" value="08" required />
+                  <input type="text" placeholder="سال" class="input-control" maxlength="2" value="06" required />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>رمز دوم پویا یا ثابت:</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="password" name="pin" class="input-control" placeholder="رمز اینترنتی" value="123456" required />
+                <button type="button" style="padding: 0 16px; border-radius: 12px; background: #e2e8f0; border: 1px solid #cbd5e1; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;" onclick="alert('رمز پویای یک‌بارمصرف به شماره همراه متصل به کارت پیامک شد.')">
+                  دریافت رمز پویا
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-submit">
+              پرداخت و تایید نهایی (${tx.amount.toLocaleString('fa-IR')} تومان)
+            </button>
+
+            <a href="/?payment=canceled&txId=${tx.id}" class="btn-cancel">
+              انصراف از پرداخت و بازگشت به کیف پول
+            </a>
+          </form>
+        </div>
+
+        <footer class="footer">
+          <p>کلیه حقوق این سامانه متعلق به شبکه الکترونیکی پرداخت کارت (شاپرک) می‌باشد.</p>
+        </footer>
+
+        <script>
+          let seconds = 599;
+          const timerEl = document.getElementById('timeRemaining');
+          setInterval(() => {
+            if (seconds <= 0) {
+              alert('زمان پرداخت به پایان رسید.');
+              window.location.href = '/?payment=expired';
+              return;
+            }
+            seconds--;
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            timerEl.innerText = m + ':' + s;
+          }, 1000);
+        </script>
+      </body>
+      </html>
+    `;
+    return res.send(html);
+  });
+
+  // Gateway Completion Action
+  app.post('/api/payment/gateway-complete', (req, res) => {
+    const { txId } = req.body;
+    const transactions = db.getTransactions();
+    const tx = transactions.find(t => t.id === txId);
+
+    if (!tx) {
+      return res.redirect('/?payment=error&message=تراکنش_یافت_نشد');
+    }
+
+    if (tx.status !== 'success') {
+      tx.status = 'success';
+      const user = db.getUserById(tx.userId);
+      if (user) {
+        user.walletBalance = (user.walletBalance || 0) + tx.amount;
+        db.updateUser(user.id, { walletBalance: user.walletBalance });
+      }
+    }
+
+    return res.redirect(`/?payment=success&txId=${tx.id}&amount=${tx.amount}&trackingCode=${tx.trackingCode}`);
+  });
+
   // ==========================================
   // 7. ADMIN PANEL ENDPOINTS
   // ==========================================
@@ -1206,10 +1499,12 @@ export function setupSaasRoutes(app: express.Express) {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: 'شماره تلفن الزامی است.' });
     const settings = db.getSettings().sms;
-    console.log(`[SMS Test] Sending test message via ${settings.provider} to ${phone}`);
+    const testCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const smsResult = await sendRealOtpSms(phone, testCode, settings);
     return res.json({
-      success: true,
-      message: `پیامک آزمایشی با موفقیت به سامانه ${settings.provider} ارسال شد.`,
+      success: smsResult.success,
+      message: smsResult.message,
+      gatewayRaw: smsResult.gatewayRaw,
     });
   });
 

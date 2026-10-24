@@ -86,7 +86,7 @@ export function WalletModal({ isOpen, onClose, user, onBalanceUpdated }: WalletM
 
   const quickAmounts = [50000, 100000, 200000, 500000, 1000000];
 
-  const handleRecharge = async () => {
+  const handleRecharge = async (mode: 'gateway' | 'sandbox' = 'gateway') => {
     if (!amount || amount < 10000) {
       setStatusMessage({ type: 'error', text: 'حداقل مبلغ شارژ ۱۰,۰۰۰ تومان است.' });
       return;
@@ -96,7 +96,7 @@ export function WalletModal({ isOpen, onClose, user, onBalanceUpdated }: WalletM
     setStatusMessage(null);
 
     try {
-      // 1. Create invoice
+      // 1. Create invoice in system
       const invoiceRes = await fetch('/api/payment/create-invoice', {
         method: 'POST',
         headers: {
@@ -109,7 +109,15 @@ export function WalletModal({ isOpen, onClose, user, onBalanceUpdated }: WalletM
       const invoiceData = await invoiceRes.json();
       if (!invoiceRes.ok) throw new Error(invoiceData.error || 'خطا در ایجاد فاکتور');
 
-      // 2. In sandbox/dev environment, complete verification immediately
+      if (mode === 'gateway') {
+        // Direct redirect to Bank Gateway / Shaparak Portal!
+        setStatusMessage({ type: 'success', text: 'در حال هدایت به درگاه پرداخت الکترونیک بانکی شاپرک...' });
+        const redirectUrl = invoiceData.paymentUrl || `/payment/gateway/${invoiceData.transactionId}`;
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // Quick sandbox test mode
       const verifyRes = await fetch('/api/payment/verify', {
         method: 'POST',
         headers: {
@@ -125,7 +133,7 @@ export function WalletModal({ isOpen, onClose, user, onBalanceUpdated }: WalletM
       onBalanceUpdated(verifyData.newBalance);
       setStatusMessage({
         type: 'success',
-        text: `شارژ حساب با موفقیت انجام شد! کد پیگیری: ${verifyData.trackingCode || invoiceData.trackingCode}`,
+        text: `شارژ تستی با موفقیت انجام شد! کد پیگیری: ${verifyData.trackingCode || invoiceData.trackingCode}`,
       });
       fetchTransactions();
     } catch (err: any) {
@@ -331,15 +339,27 @@ export function WalletModal({ isOpen, onClose, user, onBalanceUpdated }: WalletM
                 <span>اتصال با پروتکل امن به سامانه شاپرک و تسویه آنی کیف پول شما</span>
               </div>
 
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleRecharge}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                <span>پرداخت و شارژ آنی {amount.toLocaleString('fa-IR')} تومان</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleRecharge('gateway')}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                  <span>اتصال به درگاه بانکی شاپرک و پرداخت {amount.toLocaleString('fa-IR')} تومان</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleRecharge('sandbox')}
+                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-amber-400 font-semibold text-xs border border-slate-700 transition flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>شارژ تستی در محیط آزمایشگاهی (توسعه و بدون کارت بانکی)</span>
+                </button>
+              </div>
             </div>
           ) : (
             /* History Tab */
