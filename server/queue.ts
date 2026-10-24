@@ -69,6 +69,18 @@ export class QueueManager {
     }, 3500);
   }
 
+  public getStats() {
+    const allJobs = db.getActiveJobs();
+    return {
+      activeProcessingCount: this.activeJobIds.size,
+      queuedJobsCount: allJobs.filter(j => j.status === 'queued').length,
+      processingJobsCount: allJobs.filter(j => j.status === 'processing').length,
+      totalActiveJobs: allJobs.length,
+      isWorkerRunning: true,
+      lastTickAt: Date.now(),
+    };
+  }
+
   // Get or assign an API key specifically for a user
   private getKeyForUser(userId: string): ApiKeyConfig | null {
     const allKeys = db.getApiKeys().filter(k => k.isActive);

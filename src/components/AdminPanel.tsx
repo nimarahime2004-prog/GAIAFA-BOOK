@@ -98,6 +98,94 @@ export const PROVIDER_DEFAULT_BASE_URL: Record<string, string> = {
   custom: '',
 };
 
+export function AdminSectionGuide({
+  title,
+  badge = 'راهنمای این بخش',
+  badgeColor = 'amber',
+  description,
+  bullets,
+  tip,
+}: {
+  title: string;
+  badge?: string;
+  badgeColor?: 'amber' | 'emerald' | 'blue' | 'rose' | 'purple' | string;
+  description: string;
+  bullets: Array<{ title: string; text: string }>;
+  tip?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  const getBadgeStyle = () => {
+    switch (badgeColor) {
+      case 'emerald':
+        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+      case 'blue':
+        return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+      case 'rose':
+        return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+      case 'purple':
+        return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+      case 'amber':
+      default:
+        return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl relative overflow-hidden transition-all">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+              <span>{title}</span>
+              {badge && (
+                <span className={`text-[10px] font-semibold border px-2.5 py-0.5 rounded-full ${getBadgeStyle()}`}>
+                  {badge}
+                </span>
+              )}
+            </h3>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium bg-slate-850 px-3 py-1.5 rounded-xl border border-slate-700/80 transition"
+        >
+          <span>{isOpen ? 'بستن راهنما ▲' : 'مشاهده راهنما ▼'}</span>
+        </button>
+      </div>
+
+      <p className="text-xs text-slate-300 leading-relaxed mb-3">
+        {description}
+      </p>
+
+      {isOpen && (
+        <div className="space-y-2.5 pt-2.5 border-t border-slate-800/80 animate-in fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            {bullets.map((b, idx) => (
+              <div key={idx} className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/90 flex items-start gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400 mt-1 shrink-0" />
+                <div>
+                  <strong className="text-amber-300 font-bold block mb-1">{b.title}</strong>
+                  <span className="text-slate-300 leading-relaxed text-[11px]">{b.text}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {tip && (
+            <div className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 p-2.5 rounded-xl flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{tip}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
@@ -180,6 +268,25 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
   });
   const [testingKeyId, setTestingKeyId] = useState<string | null>(null);
 
+  // Edit Key Modal State (کاربر خواست هر کلید را بشود ویرایش کرد)
+  const [editKeyModal, setEditKeyModal] = useState<any | null>(null);
+  const [editKeyForm, setEditKeyForm] = useState({
+    id: '',
+    name: '',
+    provider: 'gemini',
+    apiKey: '',
+    model: 'gemini-3.8-flash',
+    baseURL: '',
+    priority: 1,
+    isActive: true,
+    isCustomModel: false,
+  });
+
+  // Batch Key Testing & Queue Stats
+  const [testingAllKeys, setTestingAllKeys] = useState(false);
+  const [batchTestResults, setBatchTestResults] = useState<any[] | null>(null);
+  const [queueStats, setQueueStats] = useState<any>(null);
+
   // System Settings (Finance, CMS, Security, SMS, SEO)
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [saveSettingsSuccess, setSaveSettingsSuccess] = useState(false);
@@ -212,6 +319,7 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
     fetchCoupons();
     fetchCustomPages();
     fetchHeaderFooter();
+    fetchQueueStats();
   }, []);
 
   const fetchCoupons = async () => {
@@ -662,6 +770,126 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchApiKeys();
+    } catch (e) {}
+  };
+
+  // Open Edit API Key Modal
+  const handleOpenEditKey = (k: any) => {
+    const isCustom = !(PROVIDER_PRESET_MODELS[k.provider] || []).includes(k.model);
+    setEditKeyForm({
+      id: k.id,
+      name: k.name || '',
+      provider: k.provider || 'gemini',
+      apiKey: k.apiKey || '',
+      model: k.model || 'gemini-3.8-flash',
+      baseURL: k.baseURL || '',
+      priority: k.priority || 1,
+      isActive: k.isActive !== false,
+      isCustomModel: isCustom,
+    });
+    setEditKeyModal(k);
+  };
+
+  // Save Edited API Key to Server (PUT /api/admin/api-keys/:id)
+  const handleSaveEditedApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editKeyForm.name || !editKeyForm.apiKey) {
+      alert('نام و متن کلید API الزامی هستند.');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/api-keys/${editKeyForm.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...editKeyForm,
+          model: editKeyForm.model.trim() || 'gemini-3.8-flash',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditKeyModal(null);
+        fetchApiKeys();
+        alert('کلید با موفقیت در سرور ویرایش و ذخیره شد.');
+      } else {
+        alert(data.error || 'خطا در ویرایش کلید');
+      }
+    } catch (e: any) {
+      alert(`خطا: ${e.message}`);
+    }
+  };
+
+  // 1-Click Toggle Key Active Status
+  const handleToggleKeyActive = async (keyItem: any) => {
+    try {
+      const res = await fetch(`/api/admin/api-keys/${keyItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: !keyItem.isActive }),
+      });
+      if (res.ok) fetchApiKeys();
+    } catch (e) {}
+  };
+
+  // Benchmark & Ping All Keys Concurrently
+  const handleTestAllKeys = async () => {
+    setTestingAllKeys(true);
+    try {
+      const res = await fetch('/api/admin/api-keys/test-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBatchTestResults(data.results || []);
+        fetchApiKeys();
+      } else {
+        alert(data.error || 'خطا در ارزیابی همزمان کلیدها');
+      }
+    } catch (e: any) {
+      alert(`خطا: ${e.message}`);
+    } finally {
+      setTestingAllKeys(false);
+    }
+  };
+
+  // Fetch Live Queue Stats from Server
+  const fetchQueueStats = async () => {
+    try {
+      const res = await fetch('/api/admin/queue/stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQueueStats(data.stats);
+      }
+    } catch (e) {}
+  };
+
+  // Quick 1-Click Wallet Gift for Users
+  const handleQuickGift = async (userId: string, amount: number, desc: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/adjust-wallet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount, description: desc }),
+      });
+      if (res.ok) {
+        fetchUsers();
+        alert(`مبلغ ${amount.toLocaleString('fa-IR')} تومان با موفقیت به کیف پول کاربر اضافه شد.`);
+      }
     } catch (e) {}
   };
 
@@ -1160,6 +1388,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            <AdminSectionGuide
+              title="داشبورد جامع، درآمد، ترافیک و صف پردازش ابری"
+              badge="نمای کلی سیستم"
+              badgeColor="emerald"
+              description="این بخش خلاصه زنده‌ای از درآمد تجمیعی، تعداد کاربران، کل کلمات ترجمه شده و وضعیت پردازش‌های جاری سرور را نمایش می‌دهد."
+              bullets={[
+                {
+                  title: 'پردازش مستقل ابری',
+                  text: 'کارهای ترجمه در صف پس‌زمینه سرور اجرا می‌شوند. هیچ کاربری نیازی به باز نگه داشتن تب مرورگر یا تهیه API Key ندارد.'
+                },
+                {
+                  title: 'محاسبه شفاف درآمد',
+                  text: 'درآمد کل بر اساس شارژهای موفق کیف پول از طریق درگاه‌های پرداخت متصل (زرین‌پال، نکست‌پی و ...) محاسبه می‌گردد.'
+                },
+                {
+                  title: 'تحلیل ماهیانه توکن و کلمات',
+                  text: 'نمودار تفکیکی مصرف مدل‌های مختلف و درآمد هر ماه میلادی/شمسی در پایین همین صفحه در دسترس است.'
+                },
+                {
+                  title: 'بروزرسانی لحظه‌ای',
+                  text: 'با کلیک روی دکمه بروزرسانی، آخرین تغییرات پایگاه داده سرور بدون نیاز به رفرش کل مرورگر لود می‌شود.'
+                }
+              ]}
+              tip="راهنمایی سریع: اگر پردازش‌های زیادی در صف مانده‌اند، به تب «استخر کلیدهای هوش مصنوعی» بروید و کلیدهای پرسرعت فعال بیشتری اضافه کنید."
+            />
+
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-white">داشبورد جامع سامانه</h2>
@@ -1591,6 +1845,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'completed_books' && (
           <div className="space-y-6 animate-in fade-in">
+            <AdminSectionGuide
+              title="آرشیو کتاب‌های تکمیل‌شده کاربران و خروجی چندگانه"
+              badge="کتابخانه خروجی"
+              badgeColor="emerald"
+              description="در این بخش کلیه کتاب‌هایی که فرآیند ترجمه آنها با موفقیت به پایان رسیده است نگهداری می‌شوند. مدیر سامانه می‌تواند کتاب‌ها را مستقیماً در مرورگر مطالعه کرده یا با انواع فرمت‌های چاپی و دیجیتال دانلود نماید."
+              bullets={[
+                {
+                  title: 'مطالعه مستقیم در مرورگر',
+                  text: 'با زدن دکمه «مطالعه مستقیم»، متن کامل و فصول کتاب با قابلیت تنظیم اندازه فونت باز می‌شود.'
+                },
+                {
+                  title: 'خروجی Word و HTML کتابخوان',
+                  text: 'امکان دانلود فایل DOCX استاندارد با استایل‌بندی راست‌به‌چپ یا پکیج وب HTML سبک برای مطالعه آفلاین.'
+                },
+                {
+                  title: 'چاپ مستقیم و PDF',
+                  text: 'تولید نسخه بهینه‌سازی‌شده برای پرینتر با صفحه‌بندی منظم فصول کتاب بدون نیاز به نرم‌افزار جانبی.'
+                },
+                {
+                  title: 'جستجو در آرشیو',
+                  text: 'یافتن سریع کتاب‌ها بر اساس نام فارسی، نام زبان اصلی، نویسنده یا نام کاربر سفارش‌دهنده.'
+                }
+              ]}
+              tip="نکته: خروجی‌های تولید شده کاملاً مستقل هستند و کاربران نیز در پنل کاربری خود امکان دریافت همین فایل‌ها را دارند."
+            />
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -1881,6 +2161,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'all_books' && (
           <div className="space-y-6 animate-in fade-in">
+            <AdminSectionGuide
+              title="نظارت سراسری، بازرسی محتوا و پروژه‌های کتاب"
+              badge="نظارت بر محتوا"
+              badgeColor="amber"
+              description="این بخش دید جامعی از کلیه کتاب‌های ثبت شده در کل پلتفرم ارائه می‌دهد؛ چه در حال ترجمه باشند، چه در مرحله پیش‌نویس یا تکمیل شده."
+              bullets={[
+                {
+                  title: 'محاسبه هزینه و کلمات',
+                  text: 'مشاهده تعداد دقیق کلمات هر کتاب و مبلغ محاسبه شده که از کاربر دریافت شده است.'
+                },
+                {
+                  title: 'نظارت بر روند پیشرفت',
+                  text: 'مشاهده تعداد بخش‌ها (چانک‌ها) ی تکمیل شده در برابر کل بخش‌های کتاب به همراه درصد پیشرفت زنده.'
+                },
+                {
+                  title: 'مدیریت و حذف پروژه‌های غیرمجاز',
+                  text: 'در صورت آپلود محتوای نامناسب، مدیر ارشد می‌تواند پروژه را به همراه تمام چانک‌های آن از دیتابیس حذف نماید.'
+                },
+                {
+                  title: 'ارتباط مستقیم با کاربر',
+                  text: 'شماره تلفن و ایمیل سفارش‌دهنده هر کتاب در دسترس است تا در صورت لزوم بتوانید با او تماس بگیرید.'
+                }
+              ]}
+              tip="راهنمایی: کتاب‌هایی که وضعیت آنها «در حال ترجمه» است هم‌اکنون در صف سرور به ترتیب اولویت و بدون نیاز به حضور کاربر در حال پردازش هستند."
+            />
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-white">نظارت، بازرسی و مدیریت کلیه کتاب‌های سامانه</h2>
@@ -1992,6 +2298,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'users' && (
           <div className="space-y-6">
+            <AdminSectionGuide
+              title="مدیریت جامع کاربران، نقش‌ها و کنترل اعتبار کیف پول"
+              badge="کاربران و مشتریان"
+              badgeColor="blue"
+              description="در این بخش لیست کامل حساب‌های کاربری، شماره‌های تماس، اعتبار باقی‌مانده و کتاب‌های هر کاربر ثبت است. شما می‌توانید به هر کاربر شارژ هدیه اهدا کنید، دسترسی او را مسدود یا به مدیر ارشد ارتقا دهید."
+              bullets={[
+                {
+                  title: 'شارژ مستقیم و هدیه سریع',
+                  text: 'با دکمه‌های هدیه (+۵۰ و +۱۰۰ هزار تومان) می‌توانید فوراً بدون فرم‌های طولانی به کیف پول کاربر اعتبار اضافه کنید.'
+                },
+                {
+                  title: 'بازرسی کتاب‌های اختصاصی کاربر',
+                  text: 'با کلیک روی دکمه «مشاهده کتاب‌ها»، تمام پروژه‌ها، وضعیت ترجمه و کلمات ترجمه شده توسط آن کاربر به نمایش درمی‌آید.'
+                },
+                {
+                  title: 'تغییر نقش و مسدودسازی آنی',
+                  text: 'امکان ارتقای کاربر به مدیر سیستم یا مسدود کردن کاربران متخلف با یک کلیک و ثبت در دیتابیس سرور.'
+                },
+                {
+                  title: 'جستجوی پیشرفته',
+                  text: 'امکان فیلتر سریع بر اساس نام کاربر، شماره موبایل ثبت شده یا آدرس ایمیل.'
+                }
+              ]}
+              tip="راهنمایی: موجودی کیف پول کاربر برای کسر هزینه ترجمه هر چانک استفاده می‌شود؛ هر زمان موجودی کاربر صفر شود، سیستم به او هشدار افزایش اعتبار می‌دهد."
+            />
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-white">مدیریت تمام کاربران سامانه</h2>
@@ -2031,7 +2363,7 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                       <th className="py-3.5 px-4">موجودی کیف پول</th>
                       <th className="py-3.5 px-4">تعداد کتاب‌ها</th>
                       <th className="py-3.5 px-4">وضعیت</th>
-                      <th className="py-3.5 px-4 text-left">عملیات</th>
+                      <th className="py-3.5 px-4 text-left">عملیات و هدیه سریع</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
@@ -2076,11 +2408,25 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-left">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end flex-wrap gap-1.5">
+                            <button
+                              onClick={() => handleQuickGift(u.id, 50000, 'هدیه تشویقی مدیریت')}
+                              className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold transition"
+                              title="شارژ ۵۰,۰۰۰ تومان هدیه با یک کلیک"
+                            >
+                              +۵۰ هدیه
+                            </button>
+                            <button
+                              onClick={() => handleQuickGift(u.id, 100000, 'هدیه تشویقی مدیریت')}
+                              className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-[10px] font-bold transition"
+                              title="شارژ ۱۰۰,۰۰۰ تومان هدیه با یک کلیک"
+                            >
+                              +۱۰۰ هدیه
+                            </button>
                             <button
                               onClick={() => setAdjustWalletModal({ user: u, amount: 50000, description: 'شارژ تشویقی مدیر' })}
                               className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
-                              title="تغییر موجودی کیف پول"
+                              title="تغییر دستی موجودی کیف پول"
                             >
                               کیف پول
                             </button>
@@ -2350,17 +2696,55 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'api_pool' && (
           <div className="space-y-6">
+            <AdminSectionGuide
+              title="استخر مرکزی کلیدهای هوش مصنوعی و صف پس‌زمینه سرور (مستقل از مرورگر)"
+              badge="پردازش ۱۰۰٪ سمت سرور بدون نیاز به کاربر"
+              badgeColor="amber"
+              description="کلیه کلیدها و مدل‌های هوش مصنوعی مستقیماً روی سرور سیستم ذخیره و مدیریت می‌شوند. کاربران برای ترجمه نیازی به تهیه کلید، وارد کردن API Key یا باز نگه‌داشتن مرورگر خود ندارند. با شروع ترجمه، صف سرور به صورت خودکار کار را به پایان می‌رساند."
+              bullets={[
+                {
+                  title: 'امکان ویرایش کامل هر کلید',
+                  text: 'شما می‌توانید در هر زمان نام، توکن API، مدل انتخابی، آدرس پایه (Base URL پروکسی) یا اولویت هر کلید را در سرور ویرایش کنید.'
+                },
+                {
+                  title: 'ذخیره امن روی سرور و استقلال کاربر',
+                  text: 'کاربران بدون نیاز به وارد کردن هیچ کلیدی کتاب خود را بارگذاری می‌کنند و سرور کار ترجمه را مستقل پیش می‌برد.'
+                },
+                {
+                  title: 'تحمل خطا و سوئیچ خودکار (Failover)',
+                  text: 'اگر کلیدی با محدودیت نرخ (۴۲۹) یا خطای شبکه مواجه شود، درخواست بدون وقفه به کلید فعال بعدی منتقل می‌گردد.'
+                },
+                {
+                  title: 'تست پینگ همزمان کلیدها',
+                  text: 'با یک کلیک سرعت تاخیر پاسخگویی (Latency) و سلامت تمامی کلیدهای موجود در استخر به صورت موازی ارزیابی می‌شود.'
+                }
+              ]}
+              tip="نکته مهم: برای سرعت و اطمینان حداکثری، همواره ۲ الی ۳ کلید از مدل‌های پرسرعت مانند Gemini 3.8 Flash یا MiniMax/GLM را در استخر فعال نگه دارید."
+            />
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white">استخر جامع کلیدهای هوش مصنوعی و صف موازی</h2>
-                <p className="text-xs text-slate-400">
-                  توزیع هوشمند درخواست‌ها: هر کاربر کلید مجزا دریافت می‌کند و در صورت اتمام توکن خودکار سوئیچ می‌شود.
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Server className="w-5 h-5 text-amber-400" />
+                  <span>مدیریت استخر کلیدهای هوش مصنوعی و صف هوشمند</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  توزیع هوشمند درخواست‌ها بین کلیدهای فعال سرور و پردازش پس‌زمینه بدون وابستگی به کاربر
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={fetchApiKeys}
+                  onClick={handleTestAllKeys}
+                  disabled={testingAllKeys}
+                  className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+                  title="ارزیابی سلامت و تاخیر تمامی کلیدها به طور همزمان"
+                >
+                  {testingAllKeys ? <RefreshCw className="w-4 h-4 animate-spin text-purple-400" /> : <Zap className="w-4 h-4 text-purple-400" />}
+                  <span>{testingAllKeys ? 'در حال بررسی...' : 'تست پینگ همزمان تمام کلیدها'}</span>
+                </button>
+                <button
+                  onClick={() => { fetchApiKeys(); fetchQueueStats(); }}
                   className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -2375,6 +2759,94 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                 </button>
               </div>
             </div>
+
+            {/* Live Queue Monitor Card */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-sm font-bold text-white">موتور پردازش پس‌زمینه سرور (Autonomous Server Queue)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                    فعال و آنلاین
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                  <span>وضعیت اجرا:</span>
+                  <strong className="text-slate-200">مستقل بر روی سرور (بدون نیاز به باز ماندن مرورگر کاربر)</strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/70">
+                  <div className="text-slate-400 text-[11px] mb-1">پردازش‌های در حال انجام:</div>
+                  <div className="text-lg font-black text-amber-400 font-mono">
+                    {queueStats ? queueStats.activeJobs : (overview?.activeJobsCount || 0)}
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/70">
+                  <div className="text-slate-400 text-[11px] mb-1">کتاب‌های در صف انتظار:</div>
+                  <div className="text-lg font-black text-blue-400 font-mono">
+                    {queueStats ? queueStats.queuedJobs : 0}
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/70">
+                  <div className="text-slate-400 text-[11px] mb-1">کلیدهای آماده در استخر:</div>
+                  <div className="text-lg font-black text-emerald-400 font-mono">
+                    {apiKeys.filter((k) => k.isActive).length} <span className="text-[10px] text-slate-500 font-normal">از {apiKeys.length}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/70">
+                  <div className="text-slate-400 text-[11px] mb-1">نرخ بررسی خودکار صف:</div>
+                  <div className="text-lg font-black text-purple-400 font-mono">
+                    هر ۳.۵ ثانیه
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Batch Test Results Banner */}
+            {batchTestResults && batchTestResults.length > 0 && (
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/30 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-purple-400" />
+                    نتیجه تست همزمان پینگ کلیدها:
+                  </span>
+                  <button
+                    onClick={() => setBatchTestResults(null)}
+                    className="text-[11px] text-slate-400 hover:text-white"
+                  >
+                    بستن گزارش
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
+                  {batchTestResults.map((r, i) => (
+                    <div
+                      key={i}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        r.status === 'ok'
+                          ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
+                          : 'bg-rose-500/5 border-rose-500/20 text-rose-300'
+                      }`}
+                    >
+                      <div className="truncate">
+                        <span className="font-bold block truncate">{r.name}</span>
+                        <span className="text-[10px] opacity-75">{r.provider} / {r.model}</span>
+                      </div>
+                      <div className="text-left font-mono font-bold shrink-0 mr-2">
+                        {r.status === 'ok' ? `${r.latencyMs} ms` : 'خطا'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Features callout */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2448,19 +2920,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                             {masked}
                           </td>
                           <td className="py-3.5 px-4">
-                            {isCooldown ? (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-bold">
-                                توقف موقت ({secondsLeft} ثانیه)
-                              </span>
-                            ) : k.isActive ? (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                                فعال و آماده
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 text-[10px]">
-                                غیرفعال
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {isCooldown ? (
+                                <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-bold">
+                                  توقف موقت ({secondsLeft} ثانیه)
+                                </span>
+                              ) : k.isActive ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                                  فعال و آماده
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 text-[10px]">
+                                  غیرفعال
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleToggleKeyActive(k)}
+                                className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+                                  k.isActive
+                                    ? 'border-slate-700 text-slate-400 hover:border-rose-500/40 hover:text-rose-400'
+                                    : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+                                }`}
+                                title="تغییر وضعیت فعال / غیرفعال کلید"
+                              >
+                                {k.isActive ? 'خاموش' : 'روشن'}
+                              </button>
+                            </div>
                           </td>
                           <td className="py-3.5 px-4 font-mono">
                             <span className="text-white font-bold">{k.successfulRequests || 0}</span> موفق / <span className="text-rose-400">{k.failedRequests || 0}</span> خطا
@@ -2473,6 +2958,14 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                           </td>
                           <td className="py-3.5 px-4 text-left">
                             <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditKey(k)}
+                                className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-[11px] font-bold flex items-center gap-1 transition"
+                                title="ویرایش کامل کلید، مدل، توکن یا آدرس پایه در سرور"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>ویرایش</span>
+                              </button>
                               <button
                                 onClick={() => handleTestApiKey(k)}
                                 disabled={testingKeyId === k.id}
@@ -2651,6 +3144,192 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
                 </div>
               </div>
             )}
+
+            {/* Edit Key Modal */}
+            {editKeyModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+                <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                    <div>
+                      <h3 className="font-bold text-base text-white flex items-center gap-2">
+                        <Edit2 className="w-4 h-4 text-amber-400" />
+                        <span>ویرایش کلید API در سرور</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        شناسه کلید: <span className="font-mono text-amber-300">{editKeyModal.id}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditKeyModal(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-white"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveEditedApiKey} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">نام یا عنوان نمایشی کلید:</label>
+                      <input
+                        type="text"
+                        value={editKeyForm.name}
+                        onChange={(e) => setEditKeyForm({ ...editKeyForm, name: e.target.value })}
+                        required
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">ارائه‌دهنده (Provider):</label>
+                      <select
+                        value={editKeyForm.provider}
+                        onChange={(e) => {
+                          const p = e.target.value;
+                          const defaultModels = PROVIDER_PRESET_MODELS[p] || [];
+                          const defaultBaseUrl = PROVIDER_DEFAULT_BASE_URL[p] || '';
+                          setEditKeyForm({
+                            ...editKeyForm,
+                            provider: p,
+                            model: defaultModels[0] || '',
+                            baseURL: defaultBaseUrl,
+                            isCustomModel: false,
+                          });
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="gemini">Google Gemini (پیش‌فرض فصیح و استاندارد)</option>
+                        <option value="glm">GLM - Zhipu AI (GLM-4 / GLM-Zero چینی)</option>
+                        <option value="minimax">MiniMax (MiniMax-Text-01 / Abab چینی)</option>
+                        <option value="openai">OpenAI (GPT-4o / GPT-4o-mini / o1)</option>
+                        <option value="claude">Anthropic Claude (Sonnet 3.5 / 3.7)</option>
+                        <option value="deepseek">DeepSeek Direct API</option>
+                        <option value="openrouter">OpenRouter (دسترسی تجمیعی به همه مدل‌ها)</option>
+                        <option value="proxy">سرویس واسطه / OneAPI / NewAPI / پروکسی اختصاصی</option>
+                        <option value="custom">ارائه‌دهنده سفارشی (Custom API / Self-hosted)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        متن کلید API (API Key Token):
+                      </label>
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={editKeyForm.apiKey}
+                        onChange={(e) => setEditKeyForm({ ...editKeyForm, apiKey: e.target.value })}
+                        required
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none text-left"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        کلید مستقیماً در پایگاه داده سرور ذخیره می‌شود و برای کاربران مخفی است.
+                      </p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">مدل هوش مصنوعی (Model):</label>
+                        <button
+                          type="button"
+                          onClick={() => setEditKeyForm({ ...editKeyForm, isCustomModel: !editKeyForm.isCustomModel })}
+                          className="text-[11px] text-amber-400 hover:underline"
+                        >
+                          {editKeyForm.isCustomModel ? 'انتخاب از مدل‌های پیش‌فرض' : 'ورود دستی نام مدل (سفارشی)'}
+                        </button>
+                      </div>
+
+                      {!editKeyForm.isCustomModel ? (
+                        <select
+                          value={editKeyForm.model}
+                          onChange={(e) => {
+                            if (e.target.value === '__custom__') {
+                              setEditKeyForm({ ...editKeyForm, isCustomModel: true, model: '' });
+                            } else {
+                              setEditKeyForm({ ...editKeyForm, model: e.target.value });
+                            }
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                        >
+                          {(PROVIDER_PRESET_MODELS[editKeyForm.provider] || []).map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                          <option value="__custom__">+ ورود دستی نام مدل دیگر...</option>
+                        </select>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="text"
+                            dir="ltr"
+                            value={editKeyForm.model}
+                            onChange={(e) => setEditKeyForm({ ...editKeyForm, model: e.target.value })}
+                            required
+                            className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none text-left"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {editKeyForm.provider !== 'gemini' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">
+                          آدرس پایه سرور یا پروکسی (Base URL):
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={editKeyForm.baseURL}
+                          onChange={(e) => setEditKeyForm({ ...editKeyForm, baseURL: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none text-left"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">اولویت انتخاب (Priority):</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={editKeyForm.priority}
+                          onChange={(e) => setEditKeyForm({ ...editKeyForm, priority: Number(e.target.value) })}
+                          className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex flex-col justify-end">
+                        <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={editKeyForm.isActive}
+                            onChange={(e) => setEditKeyForm({ ...editKeyForm, isActive: e.target.checked })}
+                            className="w-4 h-4 text-amber-500 rounded bg-slate-900 border-slate-700"
+                          />
+                          <span className="text-white font-semibold">کلید در صف فعال باشد</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-slate-800">
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20"
+                      >
+                        ذخیره تغییرات در سرور
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditKeyModal(null)}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                      >
+                        انصراف
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2659,6 +3338,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'finance' && settings && (
           <div className="space-y-8">
+            <AdminSectionGuide
+              title="امور مالی، درگاه‌های پرداخت اینترنتی و تعرفه کلمه‌ای"
+              badge="مالی و درگاه‌ها"
+              badgeColor="emerald"
+              description="در این بخش نرخ ترجمه بر مبنای کلمات، ضریب متون تخصصی، کد تخفیف‌ها و اتصال به درگاه‌های پرداخت شتابی (زرین‌پال، نکست‌پی، آیدی‌پی، پی‌پینگ یا شبیه‌ساز تست) تنظیم می‌شود."
+              bullets={[
+                {
+                  title: 'نرخ پایه به ازای هر کلمه',
+                  text: 'مبلغی که به ازای ترجمه هر کلمه کتاب از کیف پول کاربر کسر می‌شود (مثلاً ۴۵ تومان برای هر کلمه).'
+                },
+                {
+                  title: 'ضریب متون فوق‌تخصصی',
+                  text: 'ضریب افزایش قیمت برای کتاب‌های علمی، پزشکی، فلسفی یا دانشگاهی سنگین (مثلاً ۱.۳ برابر).'
+                },
+                {
+                  title: 'اتصال آسان درگاه‌های بانکی',
+                  text: 'تنها با وارد کردن مرچنت‌کد (Merchant ID) یا API Key زرین‌پال و نکست‌پی، درگاه پرداخت شاپرک فعال خواهد شد.'
+                },
+                {
+                  title: 'کوپن و کدهای تخفیف',
+                  text: 'در انتهای همین بخش می‌توانید کدهای تخفیف درصدی یا مبلغی برای جذب کاربران جدید ایجاد کنید.'
+                }
+              ]}
+              tip="نکته توسعه‌دهندگان: برای تست کامل فرآیند خرید بدون پرداخت وجه واقعی، درگاه پرداخت را روی حالت Sandbox یا شبیه‌ساز قرار دهید."
+            />
+
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-white">درگاه‌های پرداخت، نرخ‌گذاری و امور مالی</h2>
@@ -4087,6 +4792,32 @@ export function AdminPanel({ currentUser, onBackToUserPanel, onLogout }: AdminPa
         {/* ========================================================= */}
         {activeTab === 'security' && settings && (
           <div className="space-y-8">
+            <AdminSectionGuide
+              title="امنیت سرور، احراز هویت پیامکی، سشن‌ها و پشتیبان‌گیری"
+              badge="امنیت و زیرساخت"
+              badgeColor="rose"
+              description="در این بخش کنترل پنل پیامک OTP (ملی‌پیامک، کاوه‌نگار، SMS.ir)، محافظت در برابر حملات بروت‌فورس، حالت تعمیر و نگهداری سایت و دریافت فایل پشتیبان دیتابیس JSON قرار دارد."
+              bullets={[
+                {
+                  title: 'پنل ارسال پیامک OTP',
+                  text: 'تنظیم کلید API و خط ارسال پیامک برای ورود و ثبت‌نام سریع کاربران با کد تایید یکبار مصرف.'
+                },
+                {
+                  title: 'حالت تعمیر و نگهداری (Maintenance)',
+                  text: 'در زمان ارتقای سرور یا به‌روزرسانی‌های اساسی، سایت را برای کاربران عادی موقتاً مسدود کنید در حالی که مدیران دسترسی دارند.'
+                },
+                {
+                  title: 'پشتیبان‌گیری کامل پایگاه داده',
+                  text: 'در پایین این بخش می‌توانید با یک کلیک فایل کامل پایگاه داده (database.json) را به همراه کلیه پروژه‌ها و تراکنش‌ها دانلود نمایید.'
+                },
+                {
+                  title: 'تست پیامک زنده',
+                  text: 'امکان تست ارسال آنی پیامک تستی به شماره موبایل دلخواه برای اطمینان از سلامت پنل پیامکی.'
+                }
+              ]}
+              tip="نکته امنیتی: در محیط عملیاتی، کلیدهای دسترسی پیامک و درگاه را به هیچ عنوان در اختیار افراد نامعتبر قرار ندهید."
+            />
+
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-white">تنظیمات امنیتی، سشن‌ها و پنل پیامکی</h2>

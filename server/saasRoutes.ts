@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { db, User, BookRecord, TranslationJob, TransactionRecord, ApiKeyConfig } from './db.ts';
 import { queueManager } from './queue.ts';
+import { GoogleGenAI } from '@google/genai';
 
 // Helper to extract authenticated user from Authorization header
 export function getAuthUser(req: express.Request): User | null {
@@ -936,39 +937,132 @@ export function setupSaasRoutes(app: express.Express) {
     return res.json({ keys });
   });
 
-  // Admin Save / Update API Key
+  // Admin Save / Update API Key (Create or Update)
   app.post('/api/admin/api-keys', requireAdmin, (req, res) => {
     const { id, name, provider, apiKey, model, baseURL, isActive, priority } = req.body;
     if (!name || !apiKey || !provider) {
-      return res.status(400).json({ error: 'اطلاعات کلید API ناقص است.' });
+      return res.status(400).json({ error: 'اطلاعات کلید API ناقص است (نام، کلید و ارائه‌دهنده الزامی هستند).' });
     }
 
+    const existing = id ? db.getApiKeys().find(k => k.id === id) : null;
+
     const keyConfig: ApiKeyConfig = {
+      ...(existing || {}),
       id: id || `key_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
       name: name.trim(),
       provider: provider || 'gemini',
       apiKey: apiKey.trim(),
       model: model || 'gemini-3.8-flash',
-      baseURL: baseURL?.trim(),
+      baseURL: baseURL?.trim() || '',
       isActive: isActive !== false,
       priority: Number(priority) || 1,
-      totalRequests: 0,
-      successfulRequests: 0,
-      failedRequests: 0,
-      totalTokensUsed: 0,
-      rpmCount: 0,
-      cooldownUntil: 0,
+      totalRequests: existing?.totalRequests || 0,
+      successfulRequests: existing?.successfulRequests || 0,
+      failedRequests: existing?.failedRequests || 0,
+      totalTokensUsed: existing?.totalTokensUsed || 0,
+      rpmCount: existing?.rpmCount || 0,
+      cooldownUntil: existing?.cooldownUntil || 0,
     };
 
     db.saveApiKey(keyConfig);
-    return res.json({ success: true, key: keyConfig });
+    return res.json({ success: true, key: keyConfig, message: existing ? 'کلید با موفقیت ویرایش شد.' : 'کلید جدید با موفقیت در سرور ذخیره شد.' });
+  });
+
+  // Admin Direct Edit API Key (PUT)
+  app.put('/api/admin/api-keys/:id', requireAdmin, (req, res) => {
+    const keyId = req.params.id;
+    const existing = db.getApiKeys().find(k => k.id === keyId);
+    if (!existing) {
+      return res.status(404).json({ error: 'کلید مورد نظر در سرور یافت نشد.' });
+    }
+
+    const { name, provider, apiKey, model, baseURL, isActive, priority } = req.body;
+    const updatedConfig: ApiKeyConfig = {
+      ...existing,
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(provider !== undefined ? { provider } : {}),
+      ...(apiKey !== undefined && apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+      ...(model !== undefined ? { model } : {}),
+      ...(baseURL !== undefined ? { baseURL: baseURL.trim() } : {}),
+      ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+      ...(priority !== undefined ? { priority: Number(priority) } : {}),
+    };
+
+    db.saveApiKey(updatedConfig);
+    return res.json({ success: true, key: updatedConfig, message: 'کلید در سرور با موفقیت بروزرسانی شد.' });
+  });
+
+  // Admin Test All API Keys Concurrently (Benchmark & Latency check)
+  app.post('/api/admin/api-keys/test-all', requireAdmin, async (req, res) => {
+    const keys = db.getApiKeys();
+    const results: Array<{ id: string; name: string; success: boolean; latencyMs?: number; error?: string }> = [];
+
+    await Promise.all(
+      keys.map(async (k) => {
+        const t0 = Date.now();
+        try {
+          if (k.provider === 'gemini') {
+            const ai = new GoogleGenAI({
+              apiKey: k.apiKey,
+              httpOptions: { timeout: 10000 },
+            });
+            const resp = await ai.models.generateContent({
+              model: k.model || 'gemini-3.8-flash',
+              contents: 'Ping',
+              config: { maxOutputTokens: 5 },
+            });
+            const latencyMs = Date.now() - t0;
+            k.lastLatencyMs = latencyMs;
+            db.saveApiKey(k);
+            results.push({ id: k.id, name: k.name, success: true, latencyMs });
+          } else {
+            // OpenAI-compatible ping
+            const targetUrl = `${(k.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/chat/completions`;
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 12000);
+            const resp = await fetch(targetUrl, {
+              method: 'POST',
+              signal: controller.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${k.apiKey}`,
+              },
+              body: JSON.stringify({
+                model: k.model || 'gpt-4o-mini',
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 5,
+              }),
+            });
+            clearTimeout(tid);
+            const latencyMs = Date.now() - t0;
+            if (resp.ok) {
+              k.lastLatencyMs = latencyMs;
+              db.saveApiKey(k);
+              results.push({ id: k.id, name: k.name, success: true, latencyMs });
+            } else {
+              results.push({ id: k.id, name: k.name, success: false, latencyMs, error: `HTTP ${resp.status}` });
+            }
+          }
+        } catch (err: any) {
+          results.push({ id: k.id, name: k.name, success: false, error: err.message || 'خطای اتصال' });
+        }
+      })
+    );
+
+    return res.json({ success: true, results });
+  });
+
+  // Admin Queue Live Stats (Realtime Background Worker status)
+  app.get('/api/admin/queue/stats', requireAdmin, (req, res) => {
+    const stats = queueManager.getStats();
+    return res.json({ stats });
   });
 
   // Admin Delete API Key
   app.delete('/api/admin/api-keys/:id', requireAdmin, (req, res) => {
     const ok = db.deleteApiKey(req.params.id);
     if (!ok) return res.status(404).json({ error: 'کلید یافت نشد.' });
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'کلید با موفقیت از سرور حذف شد.' });
   });
 
   // Admin Get Settings
