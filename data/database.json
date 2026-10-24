@@ -1,0 +1,226 @@
+{
+  "users": [
+    {
+      "id": "usr_admin_1",
+      "name": "مدیر ارشد سامانه",
+      "phone": "09120000000",
+      "email": "admin@translator.com",
+      "passwordHash": "535e93491fe3d76a6216a3ae678071a41443674c1fbc5e28d2d51073c4f73d21",
+      "role": "admin",
+      "walletBalance": 2500000,
+      "status": "active",
+      "createdAt": 1790179026712
+    },
+    {
+      "id": "usr_demo_1",
+      "name": "کاربر ویژه (تست)",
+      "phone": "09351234567",
+      "email": "user@example.com",
+      "passwordHash": "fc4f85b9fe1a7e598f3641fd061de85aeb81b4f9a9340e320a354adf6fc113e7",
+      "role": "user",
+      "walletBalance": 450000,
+      "status": "active",
+      "createdAt": 1792166226712
+    },
+    {
+      "id": "usr_1792771055099_630ab4ec",
+      "name": "سینا رضایی",
+      "phone": "09129998877",
+      "email": "09129998877@translator.internal",
+      "passwordHash": "",
+      "role": "user",
+      "walletBalance": 25000,
+      "status": "active",
+      "createdAt": 1792771055099,
+      "lastLoginAt": 1792771055099
+    }
+  ],
+  "books": [
+    {
+      "id": "book_demo_1",
+      "userId": "usr_demo_1",
+      "title": "قدرت حال (نمونه)",
+      "originalTitle": "The Power of Now",
+      "author": "اکهارت تله (Eckhart Tolle)",
+      "translator": "سامانه هوشمند ترجمه کتاب",
+      "tone": "معنوی و خودشناسی",
+      "wordCount": 1450,
+      "estimatedCost": 65250,
+      "status": "completed",
+      "chunks": [
+        {
+          "id": "chk_demo_1",
+          "chapterNumber": 1,
+          "chapterTitle": "فصل نخست: شما ذهن خود نیستید",
+          "chunkNumber": 1,
+          "englishText": "You are not your mind. The greatest obstacle to experiencing this reality of connectedness is identification with your mind, which causes thought to become compulsive.",
+          "translatedHtml": "<h1 style=\"color: #1a365d; font-size: 24pt; margin-bottom: 20px; text-align: center;\">شما ذهن خود نیستید</h1>\n<p style=\"line-height: 1.9; font-size: 12pt; text-align: justify; margin-bottom: 14px;\">بزرگ‌ترین مانع در تجربه پیوند بنیادین با هستی، <span style=\"color: #9b2c2c; font-weight: bold;\">همانندپنداری با ذهن</span> است؛ امری که باعث می‌شود اندیشیدن به یک اجبار ناخودآگاه تبدیل گردد. ناتوانی در متوقف ساختن جریان افکار، رنجی جانکاه است که کمتر کسی به آن واقف است.</p>",
+          "status": "completed",
+          "wordCount": 35,
+          "estimatedTokens": 48,
+          "keyUsed": "Primary-Gemini",
+          "modelUsed": "gemini-3.8-flash",
+          "translatedAt": 1792684626712
+        }
+      ],
+      "createdAt": 1792684626712,
+      "updatedAt": 1792684626712
+    }
+  ],
+  "jobs": [],
+  "transactions": [
+    {
+      "id": "tx_init_1",
+      "userId": "usr_demo_1",
+      "amount": 500000,
+      "type": "deposit",
+      "description": "شارژ آنلاین کیف پول از طریق درگاه زرین‌پال",
+      "gateway": "zarinpal",
+      "status": "success",
+      "trackingCode": "ZP-984321",
+      "createdAt": 1792166226712
+    },
+    {
+      "id": "tx_init_2",
+      "userId": "usr_demo_1",
+      "amount": -50000,
+      "type": "charge",
+      "description": "هزینه ترجمه نمونه کتاب قدرت حال",
+      "status": "success",
+      "createdAt": 1792684626712
+    },
+    {
+      "id": "tx_1792771055099",
+      "userId": "usr_1792771055099_630ab4ec",
+      "amount": 25000,
+      "type": "admin_gift",
+      "description": "هدیه ثبت نام اولیه در سامانه ترجمه کتاب",
+      "status": "success",
+      "createdAt": 1792771055099
+    }
+  ],
+  "apiKeys": [
+    {
+      "id": "key_primary_gemini",
+      "name": "Gemini Primary Enterprise",
+      "provider": "gemini",
+      "apiKey": "AQ.Ab8RN6KvORfo0w7_0pbgQu1UmstUk9UXFHpI8SSHNx59DitlEQ",
+      "model": "gemini-3.8-flash",
+      "isActive": true,
+      "priority": 1,
+      "totalRequests": 14,
+      "successfulRequests": 14,
+      "failedRequests": 0,
+      "totalTokensUsed": 18500,
+      "rpmCount": 0,
+      "cooldownUntil": 0,
+      "lastLatencyMs": 1200
+    }
+  ],
+  "otpStore": {},
+  "sessions": {
+    "5a1f7d82b9db4028e17367e9d93d2b24816bf82bd025afbacb66be4662da626d": {
+      "userId": "usr_admin_1",
+      "expiresAt": 1793030232801
+    },
+    "653ec85a54a4db82b2418577d34e5aa73ff0e32ec5df12241be117dbfa1db630": {
+      "userId": "usr_demo_1",
+      "expiresAt": 1793030236504
+    },
+    "0c650c1f592ab5e9935bfa8e59cc156e08d7767bda3c5d3940dc8d4ac0efe3f4": {
+      "userId": "usr_1792771055099_630ab4ec",
+      "expiresAt": 1793030255100
+    }
+  },
+  "settings": {
+    "pricing": {
+      "costPerWord": 45,
+      "specializedMultiplier": 1.2,
+      "freeWelcomeGift": 25000,
+      "minDepositAmount": 50000
+    },
+    "gateways": {
+      "zarinpal": {
+        "enabled": true,
+        "merchantId": "00000000-0000-0000-0000-000000000000",
+        "isSandbox": true
+      },
+      "nextpay": {
+        "enabled": false,
+        "apiKey": ""
+      },
+      "idpay": {
+        "enabled": false,
+        "apiKey": "",
+        "isSandbox": true
+      },
+      "stripe": {
+        "enabled": false,
+        "secretKey": ""
+      }
+    },
+    "sms": {
+      "provider": "melipayamak",
+      "apiKey": "sample-sms-key",
+      "senderNumber": "50004000",
+      "patternCode": "12345"
+    },
+    "security": {
+      "maintenanceMode": false,
+      "maxConcurrentJobs": 5,
+      "sessionExpireHours": 72,
+      "ipBlacklist": [],
+      "rateLimitRpm": 120
+    },
+    "cms": {
+      "heroTitle": "سامانه تجاری و هوشمند ترجمه کتاب و متون تخصصی",
+      "heroSubtitle": "ترجمه کتاب‌های حجیم با هوش مصنوعی نسل جدید، حفظ کامل ساختار، تصاویر، پاورقی‌ها و اصطلاحات تخصصی در پس‌زمینه بدون نیاز به باز ماندن مرورگر",
+      "announcement": "🎉 به پلتفرم تجاری ترجمه کتاب خوش آمدید! با ثبت‌نام اولیه ۲۵,۰۰۰ تومان هدیه ترجمه دریافت کنید.",
+      "supportPhone": "۰۲۱-۸۸۸۸۹۹۹۹",
+      "supportEmail": "support@booktranslator.ir",
+      "features": [
+        {
+          "id": "f1",
+          "title": "پردازش ابری در پس‌زمینه",
+          "description": "کتاب خود را ارسال کنید و مرورگر را ببندید! سرور تمام فصل‌ها را بدون وقفه ترجمه و ذخیره می‌کند.",
+          "icon": "CloudLightning"
+        },
+        {
+          "id": "f2",
+          "title": "شمارش خودکار کلمات و قیمت‌گذاری شفاف",
+          "description": "هزینه ترجمه دقیقاً بر اساس تعداد کلمات محاسبه شده و از موجودی کیف پول شما کسر می‌گردد.",
+          "icon": "Calculator"
+        },
+        {
+          "id": "f3",
+          "title": "لحن تخصصی و واژه‌نامه یکپارچه",
+          "description": "انتخاب سبک نگارش معنوی، روانشناسی، اقتصادی، علمی یا رمان با استخراج هوشمند اصطلاحات تخصصی.",
+          "icon": "BookOpen"
+        },
+        {
+          "id": "f4",
+          "title": "خروجی‌های حرفه‌ای استاندارد",
+          "description": "دریافت خروجی Word تمیز و مرتب، PDF صفحه آرایی‌شده، EPUB و HTML آماده چاپ و انتشار.",
+          "icon": "DownloadCloud"
+        }
+      ],
+      "faqs": [
+        {
+          "id": "faq1",
+          "q": "آیا برای ترجمه یک کتاب ۵۰۰ صفحه‌ای باید مرورگر را باز نگه دارم؟",
+          "a": "خیر! فرآیند ترجمه کاملاً به صورت ابری و در سرور پردازش می‌شود. شما می‌توانید سفارش را ثبت کنید، پنجره را ببندید و هر زمان بازگشتید، پیشرفت زنده یا فایل نهایی را دریافت نمایید."
+        },
+        {
+          "id": "faq2",
+          "q": "هزینه ترجمه چگونه محاسبه می‌شود؟",
+          "a": "به محض بارگذاری فایل کتاب (PDF، EPUB، Word یا TXT)، کلمات کتاب در کسری از ثانیه شمرده شده و قیمت با نرخ مصوب کلمه‌ای نمایش داده می‌شود."
+        },
+        {
+          "id": "faq3",
+          "q": "آیا تصاویر درون کتاب حفظ می‌شوند؟",
+          "a": "بله، الگوریتم پردازش اختصاصی تمام تصاویر، جدول‌ها و ساختار پاراگراف‌ها را بدون افت کیفیت استخراج کرده و در ترجمه فارسی سر جای خود قرار می‌دهد."
+        }
+      ]
+    }
+  }
+}

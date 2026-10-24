@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Book Preview Styling matching system instructions */
+.book-render-content h1 {
+  color: #1a365d;
+  font-size: 22pt;
+  font-weight: 800;
+  margin-bottom: 20px;
+  margin-top: 15px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.book-render-content h2 {
+  color: #2b6cb0;
+  font-size: 16pt;
+  font-weight: 700;
+  margin-top: 25px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.book-render-content h3 {
+  color: #2c5282;
+  font-size: 13pt;
+  font-weight: 600;
+  margin-top: 18px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.book-render-content p {
+  line-height: 2.0;
+  font-size: 12pt;
+  text-align: justify;
+  margin-bottom: 16px;
+  color: #1e293b;
+  text-justify: inter-word;
+}
+
+.book-render-content blockquote {
+  border-right: 4px solid #3182ce;
+  border-left: none;
+  padding: 12px 20px;
+  margin: 18px 0;
+  background: #f8fafc;
+  color: #334155;
+  font-style: italic;
+  border-radius: 0 6px 6px 0;
+}
+
+.book-render-content span[style*="color: #9b2c2c"],
+.book-render-content .glossary-term {
+  color: #9b2c2c !important;
+  font-weight: 700;
+  background-color: #fff5f5;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* Embedded illustrations & images styling */
+.book-embedded-image,
+.book-illustration-wrap img,
+.english-book-view img {
+  max-width: 88% !important;
+  height: auto !important;
+  margin: 1.5rem auto !important;
+  display: block !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.book-illustration-wrap {
+  text-align: center;
+  margin: 1.5rem 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.english-book-view p {
+  margin-bottom: 1rem;
+}
+
+/* Print / PDF generation styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 12mm 15mm;
+  }
+
+  html, body {
+    background: transparent !important;
+    color: inherit !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .book-page {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .book-chapter-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  table.print-doc-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead.print-table-header {
+    display: table-header-group !important;
+  }
+
+  tfoot.print-table-footer {
+    display: table-footer-group !important;
+  }
+
+  tbody.print-table-body tr {
+    page-break-inside: auto !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
